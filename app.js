@@ -42,6 +42,11 @@ const studentModal = document.getElementById('studentModal');
 const studentForm = document.getElementById('studentForm');
 const flightModal = document.getElementById('flightModal');
 const flightForm = document.getElementById('flightForm');
+const timerBar = document.getElementById('timerBar');
+const timerClock = document.getElementById('timerClock');
+const timerFillNote = document.getElementById('timerFillNote');
+
+let timerInterval = null;
 
 document.getElementById('addStudentBtn').addEventListener('click', () => {
   studentForm.reset();
@@ -49,9 +54,70 @@ document.getElementById('addStudentBtn').addEventListener('click', () => {
 });
 document.getElementById('logFlightBtn').addEventListener('click', () => {
   flightForm.reset();
+  timerFillNote.classList.add('hidden');
   document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
   flightModal.showModal();
 });
+
+// --- Live flight timer ---
+document.getElementById('startTimerBtn').addEventListener('click', () => {
+  const student = getActiveStudent();
+  if (!student) return;
+  student.timerStart = Date.now();
+  saveData();
+  renderTimerBar();
+});
+
+document.getElementById('cancelTimerBtn').addEventListener('click', () => {
+  const student = getActiveStudent();
+  if (!student) return;
+  if (!confirm('Discard this timed flight without logging it?')) return;
+  delete student.timerStart;
+  saveData();
+  renderTimerBar();
+});
+
+document.getElementById('stopTimerBtn').addEventListener('click', () => {
+  const student = getActiveStudent();
+  if (!student || !student.timerStart) return;
+  const elapsedHrs = (Date.now() - student.timerStart) / 3600000;
+  delete student.timerStart;
+  saveData();
+  renderTimerBar();
+
+  flightForm.reset();
+  document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('fDual').value = fmt(elapsedHrs);
+  timerFillNote.textContent = `Timed flight: ${fmt(elapsedHrs)} hrs filled into "Dual hrs" below — move it to Solo or split it however fits before saving.`;
+  timerFillNote.classList.remove('hidden');
+  flightModal.showModal();
+});
+
+function formatClock(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+  const s = String(totalSec % 60).padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+function renderTimerBar() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  const student = getActiveStudent();
+  if (student && student.timerStart) {
+    timerBar.classList.remove('hidden');
+    const tick = () => {
+      timerClock.textContent = formatClock(Date.now() - student.timerStart);
+    };
+    tick();
+    timerInterval = setInterval(tick, 1000);
+  } else {
+    timerBar.classList.add('hidden');
+  }
+}
 document.querySelectorAll('[data-close]').forEach(btn => {
   btn.addEventListener('click', () => btn.closest('dialog').close());
 });
@@ -137,7 +203,10 @@ function renderRoster() {
     const li = document.createElement('li');
     li.className = s.id === activeStudentId ? 'active' : '';
     const totals = computeTotals(s.flights);
-    li.innerHTML = `<span>${escapeHTML(s.name)}</span><span class="hrs">${fmt(totals.total)}h</span>`;
+    const badge = s.timerStart
+      ? `<span class="hrs timing">&#9679; timing</span>`
+      : `<span class="hrs">${fmt(totals.total)}h</span>`;
+    li.innerHTML = `<span>${escapeHTML(s.name)}</span>${badge}`;
     li.addEventListener('click', () => {
       activeStudentId = s.id;
       renderRoster();
@@ -152,10 +221,13 @@ function renderStudent() {
   if (!student) {
     noStudentState.classList.remove('hidden');
     studentView.classList.add('hidden');
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     return;
   }
   noStudentState.classList.add('hidden');
   studentView.classList.remove('hidden');
+
+  renderTimerBar();
 
   studentNameEl.textContent = student.name;
   studentMetaEl.textContent = student.meta ? student.meta : '';

@@ -45,9 +45,22 @@
           <p id="studentMeta" class="student-meta"></p>
         </div>
         <div class="ledger-actions">
-          <button id="logFlightBtn" class="btn-primary">+ Log flight</button>
+          <button id="startTimerBtn" class="btn-primary">&#9654; Start flight</button>
+          <button id="logFlightBtn" class="btn-secondary">+ Log flight manually</button>
           <button id="exportBtn" class="btn-secondary">Export CSV</button>
           <button id="deleteStudentBtn" class="btn-danger">Remove student</button>
+        </div>
+      </div>
+
+      <div id="timerBar" class="timer-bar hidden">
+        <div class="timer-readout">
+          <span class="timer-dot"></span>
+          <span id="timerClock">00:00:00</span>
+          <span class="timer-label">flight in progress</span>
+        </div>
+        <div class="timer-buttons">
+          <button id="stopTimerBtn" class="btn-primary">&#9632; Stop &amp; log</button>
+          <button id="cancelTimerBtn" class="btn-secondary">Cancel</button>
         </div>
       </div>
 
@@ -101,6 +114,7 @@
 <dialog id="flightModal" class="modal">
   <form id="flightForm" class="modal-form">
     <h3>Log flight</h3>
+    <p id="timerFillNote" class="timer-fill-note hidden"></p>
     <div class="grid2">
       <label>Date
         <input type="date" id="fDate" required>
