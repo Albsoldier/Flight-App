@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flight Log — Student Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">&#9992;</span>
+    <span class="brand-name">Flight Log</span>
+  </div>
+  <div class="brand-sub">Student flight record ledger</div>
+</header>
+
+<div class="layout">
+
+  <!-- STUDENT ROSTER -->
+  <aside class="roster">
+    <div class="roster-head">
+      <h2>Roster</h2>
+      <button id="addStudentBtn" class="btn-icon" title="Add student">+</button>
+    </div>
+    <ul id="studentList" class="student-list"></ul>
+    <p id="rosterEmpty" class="empty-note">No students yet. Add one to begin.</p>
+  </aside>
+
+  <!-- MAIN LEDGER -->
+  <main class="ledger-panel">
+
+    <div id="noStudentState" class="blank-state">
+      <p>Select a student from the roster, or add a new one, to view their logbook.</p>
+    </div>
+
+    <div id="studentView" class="hidden">
+      <div class="ledger-head">
+        <div>
+          <h1 id="studentName">—</h1>
+          <p id="studentMeta" class="student-meta"></p>
+        </div>
+        <div class="ledger-actions">
+          <button id="logFlightBtn" class="btn-primary">+ Log flight</button>
+          <button id="exportBtn" class="btn-secondary">Export CSV</button>
+          <button id="deleteStudentBtn" class="btn-danger">Remove student</button>
+        </div>
+      </div>
+
+      <div class="totals-strip" id="totalsStrip"></div>
+
+      <div class="table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Aircraft</th>
+              <th>Route</th>
+              <th>Dual</th>
+              <th>Solo</th>
+              <th>Night</th>
+              <th>X-Country</th>
+              <th>Instructor</th>
+              <th>Remarks</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="logRows"></tbody>
+          <tfoot>
+            <tr class="totals-row" id="totalsRow"></tr>
+          </tfoot>
+        </table>
+        <p id="logEmpty" class="empty-note">No flights logged yet.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ADD STUDENT MODAL -->
+<dialog id="studentModal" class="modal">
+  <form id="studentForm" class="modal-form">
+    <h3>Add student</h3>
+    <label>Full name
+      <input type="text" id="inpName" required placeholder="e.g. Alice Chen">
+    </label>
+    <label>Student ID / email <span class="opt">(optional)</span>
+      <input type="text" id="inpMeta" placeholder="e.g. AC-2041">
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" data-close>Cancel</button>
+      <button type="submit" class="btn-primary">Add student</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- LOG FLIGHT MODAL -->
+<dialog id="flightModal" class="modal">
+  <form id="flightForm" class="modal-form">
+    <h3>Log flight</h3>
+    <div class="grid2">
+      <label>Date
+        <input type="date" id="fDate" required>
+      </label>
+      <label>Aircraft (tail #)
+        <input type="text" id="fAircraft" required placeholder="N1234A">
+      </label>
+    </div>
+    <label>Route
+      <input type="text" id="fRoute" placeholder="e.g. KPAO – KSQL – KPAO">
+    </label>
+    <div class="grid3">
+      <label>Dual hrs
+        <input type="number" id="fDual" min="0" step="0.1" value="0">
+      </label>
+      <label>Solo hrs
+        <input type="number" id="fSolo" min="0" step="0.1" value="0">
+      </label>
+      <label>Night hrs
+        <input type="number" id="fNight" min="0" step="0.1" value="0">
+      </label>
+    </div>
+    <div class="grid2">
+      <label>Cross-country hrs
+        <input type="number" id="fXc" min="0" step="0.1" value="0">
+      </label>
+      <label>Instructor
+        <input type="text" id="fInstructor" placeholder="e.g. J. Marsh">
+      </label>
+    </div>
+    <label>Remarks
+      <textarea id="fRemarks" rows="2" placeholder="Maneuvers practiced, conditions, etc."></textarea>
+    </label>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" data-close>Cancel</button>
+      <button type="submit" class="btn-primary">Save entry</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,254 @@
+:root {
+  --paper: #f2eee4;
+  --paper-raised: #f8f5ed;
+  --ink: #1b2a3c;
+  --ink-soft: #4a5a6e;
+  --brass: #b8862e;
+  --brass-dark: #8f6620;
+  --line: #c9c0ac;
+  --redpen: #8c3b2e;
+  --radius: 3px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* ---------- Header ---------- */
+.topbar {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 18px 28px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  border-bottom: 3px solid var(--brass);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { font-size: 1.3rem; color: var(--brass); }
+.brand-name {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: 0.01em;
+}
+.brand-sub {
+  font-size: 0.85rem;
+  color: #b9c2cf;
+}
+
+/* ---------- Layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - 66px);
+}
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ---------- Roster ---------- */
+.roster {
+  border-right: 1px solid var(--line);
+  padding: 20px 16px;
+  background: var(--paper-raised);
+}
+.roster-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.roster-head h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.95rem;
+  text-transform: none;
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.btn-icon {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--brass);
+  background: transparent;
+  color: var(--brass-dark);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.btn-icon:hover { background: var(--brass); color: var(--paper); }
+
+.student-list { list-style: none; margin: 0; padding: 0; }
+.student-list li {
+  padding: 9px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.92rem;
+  margin-bottom: 2px;
+  border-left: 3px solid transparent;
+  display: flex;
+  justify-content: space-between;
+}
+.student-list li:hover { background: #e9e3d3; }
+.student-list li.active {
+  background: #e9e3d3;
+  border-left-color: var(--brass);
+  font-weight: 600;
+}
+.student-list .hrs {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.empty-note { color: var(--ink-soft); font-size: 0.88rem; margin-top: 10px; }
+
+/* ---------- Main ledger ---------- */
+.ledger-panel { padding: 28px 32px; }
+.blank-state {
+  color: var(--ink-soft);
+  font-size: 1rem;
+  padding-top: 60px;
+  text-align: center;
+}
+.hidden { display: none; }
+
+.ledger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+.ledger-head h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.6rem;
+  margin: 0 0 4px 0;
+}
+.student-meta { margin: 0; color: var(--ink-soft); font-size: 0.88rem; }
+.ledger-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+button { font-family: 'Inter', sans-serif; font-size: 0.86rem; cursor: pointer; }
+.btn-primary, .btn-secondary, .btn-danger {
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+.btn-primary { background: var(--brass); color: var(--paper); }
+.btn-primary:hover { background: var(--brass-dark); }
+.btn-secondary { background: transparent; border-color: var(--ink-soft); color: var(--ink); }
+.btn-secondary:hover { background: #e9e3d3; }
+.btn-danger { background: transparent; border-color: var(--redpen); color: var(--redpen); }
+.btn-danger:hover { background: var(--redpen); color: var(--paper); }
+
+/* ---------- Totals strip ---------- */
+.totals-strip {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.totals-strip .stat { min-width: 90px; }
+.totals-strip .stat .num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: block;
+}
+.totals-strip .stat .label {
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+}
+
+/* ---------- Table (ledger ruling) ---------- */
+.table-wrap { overflow-x: auto; }
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.87rem;
+  min-width: 780px;
+}
+.log-table th {
+  text-align: left;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  border-bottom: 2px solid var(--ink);
+  padding: 8px 10px;
+}
+.log-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.log-table tbody tr:hover { background: var(--paper-raised); }
+.log-table .num-cell { font-family: 'IBM Plex Mono', monospace; }
+.log-table .remarks-cell { color: var(--ink-soft); max-width: 220px; }
+.row-del {
+  background: none; border: none; color: var(--redpen);
+  font-size: 0.9rem; padding: 0;
+}
+.totals-row td {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  border-top: 2px solid var(--ink);
+  border-bottom: none;
+}
+
+/* ---------- Modal ---------- */
+.modal {
+  border: none;
+  border-radius: 4px;
+  padding: 0;
+  background: var(--paper-raised);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.modal::backdrop { background: rgba(27,42,60,0.45); }
+.modal-form { padding: 24px 26px; width: 340px; }
+.modal-form h3 {
+  font-family: 'Space Grotesk', sans-serif;
+  margin-top: 0;
+}
+.modal-form label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+.modal-form .opt { font-weight: 400; }
+.modal-form input, .modal-form textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.modal-form input:focus, .modal-form textarea:focus {
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
