@@ -1,305 +1,301 @@
-// --- Storage ---
-const STORAGE_KEY = 'flightlog.students.v1';
+/* ---------------- STORAGE (localStorage-backed) ---------------- */
+const LS_KEYS = { students: 'fs_students', materials: 'fs_materials', sessions: 'fs_sessions' };
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    console.error('Failed to load flight log data', e);
-    return [];
-  }
+function loadLS(key){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; }
+  catch(e){ return []; }
+}
+function saveLS(key, arr){
+  try{ localStorage.setItem(key, JSON.stringify(arr)); return true; }
+  catch(e){ console.error('Storage save failed (quota?)', e); return false; }
 }
 
-function saveData() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
-  } catch (e) {
-    console.error('Failed to save flight log data', e);
-  }
+let students = loadLS(LS_KEYS.students);   // {id, name, aircraft, notes, totalHours}
+let materials = loadLS(LS_KEYS.materials); // {id, name, dataUrl, contentType, uploadedAt}
+let sessions = loadLS(LS_KEYS.sessions);   // {id, studentId, studentName, startedAt, endedAt, durationSeconds, note}
+
+let currentTab = 'roster';
+let viewingStudentId = null;
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
 }
-
-let students = loadData();
-let activeStudentId = students.length ? students[0].id : null;
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+function fmtDur(sec){
+  sec = Math.floor(sec);
+  const h = String(Math.floor(sec/3600)).padStart(2,'0');
+  const m = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return h+':'+m+':'+s;
 }
+function fmtHours(sec){ return (sec/3600).toFixed(1); }
+function uid(){ return 'id_'+Math.random().toString(36).slice(2,10); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-// --- Elements ---
-const studentList = document.getElementById('studentList');
-const rosterEmpty = document.getElementById('rosterEmpty');
-const noStudentState = document.getElementById('noStudentState');
-const studentView = document.getElementById('studentView');
-const studentNameEl = document.getElementById('studentName');
-const studentMetaEl = document.getElementById('studentMeta');
-const totalsStrip = document.getElementById('totalsStrip');
-const logRows = document.getElementById('logRows');
-const totalsRow = document.getElementById('totalsRow');
-const logEmpty = document.getElementById('logEmpty');
+/* ---------------- ROSTER ---------------- */
+function renderRoster(){
+  const el = document.getElementById('tab-roster');
+  if(viewingStudentId){ renderStudentDetail(el); return; }
 
-const studentModal = document.getElementById('studentModal');
-const studentForm = document.getElementById('studentForm');
-const flightModal = document.getElementById('flightModal');
-const flightForm = document.getElementById('flightForm');
-const timerBar = document.getElementById('timerBar');
-const timerClock = document.getElementById('timerClock');
-const timerFillNote = document.getElementById('timerFillNote');
+  let html = `<div class="card">
+    <h2>Add Student</h2>
+    <div class="row">
+      <div class="field"><label class="small">Name</label><input id="newName" placeholder="Student name"></div>
+      <div class="field"><label class="small">Aircraft</label><input id="newAircraft" placeholder="e.g. Cessna 172"></div>
+      <div style="align-self:flex-end"><button class="btn" onclick="addStudent()">Add</button></div>
+    </div>
+  </div>
+  <div class="card"><h2>Roster (${students.length})</h2>`;
 
-let timerInterval = null;
-
-document.getElementById('addStudentBtn').addEventListener('click', () => {
-  studentForm.reset();
-  studentModal.showModal();
-});
-document.getElementById('logFlightBtn').addEventListener('click', () => {
-  flightForm.reset();
-  timerFillNote.classList.add('hidden');
-  document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
-  flightModal.showModal();
-});
-
-// --- Live flight timer ---
-document.getElementById('startTimerBtn').addEventListener('click', () => {
-  const student = getActiveStudent();
-  if (!student) return;
-  student.timerStart = Date.now();
-  saveData();
-  renderTimerBar();
-});
-
-document.getElementById('cancelTimerBtn').addEventListener('click', () => {
-  const student = getActiveStudent();
-  if (!student) return;
-  if (!confirm('Discard this timed flight without logging it?')) return;
-  delete student.timerStart;
-  saveData();
-  renderTimerBar();
-});
-
-document.getElementById('stopTimerBtn').addEventListener('click', () => {
-  const student = getActiveStudent();
-  if (!student || !student.timerStart) return;
-  const elapsedHrs = (Date.now() - student.timerStart) / 3600000;
-  delete student.timerStart;
-  saveData();
-  renderTimerBar();
-
-  flightForm.reset();
-  document.getElementById('fDate').value = new Date().toISOString().slice(0, 10);
-  document.getElementById('fDual').value = fmt(elapsedHrs);
-  timerFillNote.textContent = `Timed flight: ${fmt(elapsedHrs)} hrs filled into "Dual hrs" below — move it to Solo or split it however fits before saving.`;
-  timerFillNote.classList.remove('hidden');
-  flightModal.showModal();
-});
-
-function formatClock(ms) {
-  const totalSec = Math.max(0, Math.floor(ms / 1000));
-  const h = String(Math.floor(totalSec / 3600)).padStart(2, '0');
-  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
-  const s = String(totalSec % 60).padStart(2, '0');
-  return `${h}:${m}:${s}`;
-}
-
-function renderTimerBar() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-  const student = getActiveStudent();
-  if (student && student.timerStart) {
-    timerBar.classList.remove('hidden');
-    const tick = () => {
-      timerClock.textContent = formatClock(Date.now() - student.timerStart);
-    };
-    tick();
-    timerInterval = setInterval(tick, 1000);
+  if(students.length===0){
+    html += `<div class="empty">No students yet — add your first one above.</div>`;
   } else {
-    timerBar.classList.add('hidden');
-  }
-}
-document.querySelectorAll('[data-close]').forEach(btn => {
-  btn.addEventListener('click', () => btn.closest('dialog').close());
-});
-
-studentForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const name = document.getElementById('inpName').value.trim();
-  const meta = document.getElementById('inpMeta').value.trim();
-  if (!name) return;
-  const student = { id: uid(), name, meta, flights: [] };
-  students.push(student);
-  activeStudentId = student.id;
-  saveData();
-  renderRoster();
-  renderStudent();
-  studentModal.close();
-});
-
-flightForm.addEventListener('submit', e => {
-  e.preventDefault();
-  const student = getActiveStudent();
-  if (!student) return;
-  const entry = {
-    id: uid(),
-    date: document.getElementById('fDate').value,
-    aircraft: document.getElementById('fAircraft').value.trim(),
-    route: document.getElementById('fRoute').value.trim(),
-    dual: parseFloat(document.getElementById('fDual').value) || 0,
-    solo: parseFloat(document.getElementById('fSolo').value) || 0,
-    night: parseFloat(document.getElementById('fNight').value) || 0,
-    xc: parseFloat(document.getElementById('fXc').value) || 0,
-    instructor: document.getElementById('fInstructor').value.trim(),
-    remarks: document.getElementById('fRemarks').value.trim()
-  };
-  student.flights.push(entry);
-  student.flights.sort((a, b) => a.date.localeCompare(b.date));
-  saveData();
-  renderRoster();
-  renderStudent();
-  flightModal.close();
-});
-
-document.getElementById('deleteStudentBtn').addEventListener('click', () => {
-  const student = getActiveStudent();
-  if (!student) return;
-  if (!confirm(`Remove ${student.name} and all their flight records? This can't be undone.`)) return;
-  students = students.filter(s => s.id !== student.id);
-  activeStudentId = students.length ? students[0].id : null;
-  saveData();
-  renderRoster();
-  renderStudent();
-});
-
-document.getElementById('exportBtn').addEventListener('click', () => {
-  const student = getActiveStudent();
-  if (!student) return;
-  exportCSV(student);
-});
-
-function getActiveStudent() {
-  return students.find(s => s.id === activeStudentId) || null;
-}
-
-function computeTotals(flights) {
-  return flights.reduce((t, f) => {
-    t.total += f.dual + f.solo;
-    t.dual += f.dual;
-    t.solo += f.solo;
-    t.night += f.night;
-    t.xc += f.xc;
-    return t;
-  }, { total: 0, dual: 0, solo: 0, night: 0, xc: 0 });
-}
-
-function fmt(n) {
-  return (Math.round(n * 10) / 10).toFixed(1);
-}
-
-function renderRoster() {
-  studentList.innerHTML = '';
-  rosterEmpty.style.display = students.length ? 'none' : 'block';
-  students.forEach(s => {
-    const li = document.createElement('li');
-    li.className = s.id === activeStudentId ? 'active' : '';
-    const totals = computeTotals(s.flights);
-    const badge = s.timerStart
-      ? `<span class="hrs timing">&#9679; timing</span>`
-      : `<span class="hrs">${fmt(totals.total)}h</span>`;
-    li.innerHTML = `<span>${escapeHTML(s.name)}</span>${badge}`;
-    li.addEventListener('click', () => {
-      activeStudentId = s.id;
-      renderRoster();
-      renderStudent();
+    students.forEach(st=>{
+      const total = totalHoursFor(st.id, st.totalHours);
+      html += `<div class="student-item">
+        <div>
+          <div class="name">${esc(st.name)}</div>
+          <div class="meta">${esc(st.aircraft||'—')}</div>
+        </div>
+        <div class="row" style="align-items:center">
+          <span class="pill">${total} hrs</span>
+          <button class="btn secondary" onclick="viewStudent('${st.id}')">View file</button>
+        </div>
+      </div>`;
     });
-    studentList.appendChild(li);
-  });
+  }
+  html += `</div>`;
+  el.innerHTML = html;
 }
 
-function renderStudent() {
-  const student = getActiveStudent();
-  if (!student) {
-    noStudentState.classList.remove('hidden');
-    studentView.classList.add('hidden');
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-    return;
-  }
-  noStudentState.classList.add('hidden');
-  studentView.classList.remove('hidden');
+function totalHoursFor(studentId, fallback){
+  const secs = sessions.filter(s=>s.studentId===studentId).reduce((a,s)=>a+(s.durationSeconds||0),0);
+  if(secs>0) return fmtHours(secs);
+  return fallback ? Number(fallback).toFixed(1) : '0.0';
+}
 
-  renderTimerBar();
+function addStudent(){
+  const name = document.getElementById('newName').value.trim();
+  const aircraft = document.getElementById('newAircraft').value.trim();
+  if(!name){ toast('Enter a student name'); return; }
+  const id = uid();
+  const doc = { id, name, aircraft, notes:'', totalHours:0, createdAt: Date.now() };
+  students.push(doc);
+  saveLS(LS_KEYS.students, students);
+  toast('Student added');
+  render();
+}
 
-  studentNameEl.textContent = student.name;
-  studentMetaEl.textContent = student.meta ? student.meta : '';
+function viewStudent(id){ viewingStudentId = id; render(); }
 
-  const totals = computeTotals(student.flights);
-  totalsStrip.innerHTML = `
-    <div class="stat"><span class="num">${fmt(totals.total)}</span><span class="label">Total hrs</span></div>
-    <div class="stat"><span class="num">${fmt(totals.dual)}</span><span class="label">Dual</span></div>
-    <div class="stat"><span class="num">${fmt(totals.solo)}</span><span class="label">Solo</span></div>
-    <div class="stat"><span class="num">${fmt(totals.night)}</span><span class="label">Night</span></div>
-    <div class="stat"><span class="num">${fmt(totals.xc)}</span><span class="label">Cross-country</span></div>
-    <div class="stat"><span class="num">${student.flights.length}</span><span class="label">Flights logged</span></div>
-  `;
+function renderStudentDetail(el){
+  const st = students.find(s=>s.id===viewingStudentId);
+  if(!st){ viewingStudentId=null; renderRoster(); return; }
+  const studentSessions = sessions.filter(s=>s.studentId===st.id).sort((a,b)=>(b.endedAt||0)-(a.endedAt||0));
+  const total = totalHoursFor(st.id, st.totalHours);
 
-  logRows.innerHTML = '';
-  logEmpty.style.display = student.flights.length ? 'none' : 'block';
-  student.flights.forEach(f => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${f.date}</td>
-      <td>${escapeHTML(f.aircraft)}</td>
-      <td>${escapeHTML(f.route)}</td>
-      <td class="num-cell">${fmt(f.dual)}</td>
-      <td class="num-cell">${fmt(f.solo)}</td>
-      <td class="num-cell">${fmt(f.night)}</td>
-      <td class="num-cell">${fmt(f.xc)}</td>
-      <td>${escapeHTML(f.instructor)}</td>
-      <td class="remarks-cell">${escapeHTML(f.remarks)}</td>
-      <td><button class="row-del" title="Delete entry" data-id="${f.id}">&#10005;</button></td>
-    `;
-    tr.querySelector('.row-del').addEventListener('click', () => {
-      student.flights = student.flights.filter(fl => fl.id !== f.id);
-      saveData();
-      renderRoster();
-      renderStudent();
-    });
-    logRows.appendChild(tr);
-  });
+  let sessRows = studentSessions.length ? studentSessions.map(s=>`
+    <div class="session-row">
+      <span>${s.endedAt ? new Date(s.endedAt).toLocaleString() : '—'}${s.note ? ' · '+esc(s.note):''}</span>
+      <span><strong>${fmtDur(s.durationSeconds||0)}</strong></span>
+    </div>`).join('') : `<div class="empty">No logged sessions yet.</div>`;
 
-  totalsRow.innerHTML = `
-    <td colspan="3">Totals</td>
-    <td class="num-cell">${fmt(totals.dual)}</td>
-    <td class="num-cell">${fmt(totals.solo)}</td>
-    <td class="num-cell">${fmt(totals.night)}</td>
-    <td class="num-cell">${fmt(totals.xc)}</td>
-    <td colspan="3"></td>
+  el.innerHTML = `
+    <button class="detail-back" onclick="viewingStudentId=null; render();">← Back to roster</button>
+    <div class="card">
+      <h2>${esc(st.name)}</h2>
+      <div class="muted" style="margin-bottom:10px">${esc(st.aircraft||'No aircraft set')} · <span class="pill">${total} total hrs</span></div>
+      <label class="small">Notes</label>
+      <textarea id="studentNotes" rows="3" style="width:100%" placeholder="Progress notes...">${esc(st.notes||'')}</textarea>
+      <div style="margin-top:8px"><button class="btn secondary" onclick="saveNotes('${st.id}')">Save notes</button></div>
+    </div>
+    <div class="card">
+      <h2>Flight session log</h2>
+      ${sessRows}
+    </div>
   `;
 }
 
-function escapeHTML(str) {
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
+function saveNotes(id){
+  const notes = document.getElementById('studentNotes').value;
+  const st = students.find(s=>s.id===id);
+  if(st){ st.notes = notes; saveLS(LS_KEYS.students, students); toast('Notes saved'); }
 }
 
-function exportCSV(student) {
-  const header = ['Date','Aircraft','Route','Dual','Solo','Night','Cross-country','Instructor','Remarks'];
-  const rows = student.flights.map(f => [
-    f.date, f.aircraft, f.route, fmt(f.dual), fmt(f.solo), fmt(f.night), fmt(f.xc), f.instructor, f.remarks
-  ]);
-  const csv = [header, ...rows]
-    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${student.name.replace(/\s+/g, '_')}_flight_log.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+/* ---------------- MATERIALS ---------------- */
+function renderMaterials(){
+  const el = document.getElementById('tab-materials');
+  let html = `<div class="card">
+    <h2>Upload Teaching Material</h2>
+    <div class="upload-drop" onclick="document.getElementById('fileInput').click()">
+      📎 Click to upload PDF, JPG, PNG, or other files
+    </div>
+    <input type="file" id="fileInput" style="display:none" multiple onchange="handleUpload(event)">
+    <div class="muted" style="font-size:.75rem;margin-top:8px">Files are stored in this browser only (not synced across devices). Keep individual files small — total storage is limited to a few MB.</div>
+  </div>
+  <div class="card"><h2>Materials (${materials.length})</h2>`;
+
+  if(materials.length===0){
+    html += `<div class="empty">No materials uploaded yet.</div>`;
+  } else {
+    materials.slice().reverse().forEach(m=>{
+      html += `<div class="material-item">
+        <div class="row" style="align-items:center">
+          <div class="thumb">${iconFor(m.contentType)}</div>
+          <div>
+            <div class="name">${esc(m.name)}</div>
+            <div class="meta">${new Date(m.uploadedAt).toLocaleDateString()}</div>
+          </div>
+        </div>
+        <div class="row">
+          <a class="btn secondary" href="${m.dataUrl}" download="${esc(m.name)}">Download</a>
+          <button class="btn danger" onclick="deleteMaterial('${m.id}')">Delete</button>
+        </div>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+function iconFor(ct){
+  if(!ct) return '📄';
+  if(ct.includes('pdf')) return '📕';
+  if(ct.includes('image')) return '🖼️';
+  return '📄';
+}
+function fileToDataUrl(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function handleUpload(evt){
+  const files = Array.from(evt.target.files||[]);
+  if(!files.length) return;
+  for(const file of files){
+    try{
+      const dataUrl = await fileToDataUrl(file);
+      const doc = { id: uid(), name:file.name, dataUrl, contentType:file.type, uploadedAt: Date.now() };
+      materials.push(doc);
+      const ok = saveLS(LS_KEYS.materials, materials);
+      if(!ok){ materials.pop(); toast('Storage full — try a smaller file'); break; }
+      toast('Uploaded '+file.name);
+    }catch(e){ toast('Upload failed: '+file.name); }
+  }
+  evt.target.value = '';
+  render();
+}
+function deleteMaterial(id){
+  materials = materials.filter(m=>m.id!==id);
+  saveLS(LS_KEYS.materials, materials);
+  render();
 }
 
-// --- Init ---
-renderRoster();
-renderStudent();
+/* ---------------- STOPWATCH ---------------- */
+let swState = 'idle'; // idle | running | paused
+let swStudentId = '';
+let swElapsedMs = 0;
+let swStartTs = 0;
+let swInterval = null;
+
+function renderStopwatch(){
+  const el = document.getElementById('tab-stopwatch');
+  const options = students.map(s=>`<option value="${s.id}" ${s.id===swStudentId?'selected':''}>${esc(s.name)}</option>`).join('');
+  const disabledSel = swState!=='idle' ? 'disabled' : '';
+
+  el.innerHTML = `
+  <div class="card">
+    <h2>Flight Hour Stopwatch</h2>
+    <div class="field" style="margin-bottom:14px">
+      <label class="small">Student</label>
+      <select id="swStudent" ${disabledSel} onchange="swStudentId=this.value">
+        <option value="">${students.length? 'Select a student…' : 'No students in roster yet'}</option>
+        ${options}
+      </select>
+    </div>
+    <div class="stopwatch-display" id="swDisplay">${fmtDur(currentElapsedSec())}</div>
+    <div class="sw-controls">
+      ${swState==='idle' ? `<button class="btn good" onclick="startStopwatch()">▶ Start</button>` : ''}
+      ${swState==='running' ? `<button class="btn secondary" onclick="pauseStopwatch()">⏸ Pause</button>` : ''}
+      ${swState==='paused' ? `<button class="btn good" onclick="resumeStopwatch()">▶ Resume</button>` : ''}
+      ${swState!=='idle' ? `<button class="btn danger" onclick="endStopwatch()">⏹ End Session</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function currentElapsedSec(){
+  let ms = swElapsedMs;
+  if(swState==='running') ms += (Date.now()-swStartTs);
+  return ms/1000;
+}
+function tickDisplay(){
+  const d = document.getElementById('swDisplay');
+  if(d) d.textContent = fmtDur(currentElapsedSec());
+}
+function startStopwatch(){
+  const sel = document.getElementById('swStudent');
+  swStudentId = sel.value;
+  if(!swStudentId){ toast('Select a student first'); return; }
+  swState='running'; swElapsedMs=0; swStartTs=Date.now();
+  swInterval = setInterval(tickDisplay, 1000);
+  renderStopwatch();
+}
+function pauseStopwatch(){
+  swElapsedMs += (Date.now()-swStartTs);
+  swState='paused';
+  clearInterval(swInterval);
+  renderStopwatch();
+}
+function resumeStopwatch(){
+  swStartTs = Date.now();
+  swState='running';
+  swInterval = setInterval(tickDisplay, 1000);
+  renderStopwatch();
+}
+function endStopwatch(){
+  if(swState==='running'){ swElapsedMs += (Date.now()-swStartTs); }
+  clearInterval(swInterval);
+  const durationSeconds = Math.round(swElapsedMs/1000);
+  const student = students.find(s=>s.id===swStudentId);
+  swState='idle';
+  if(durationSeconds<1){ swElapsedMs=0; renderStopwatch(); return; }
+
+  const note = prompt('Optional session note (maneuvers, route, etc.):','') || '';
+  if(student){
+    const doc = { id: uid(), studentId: student.id, studentName: student.name, startedAt: Date.now()-swElapsedMs, endedAt: Date.now(), durationSeconds, note };
+    sessions.push(doc);
+    saveLS(LS_KEYS.sessions, sessions);
+    const newTotalSec = sessions.filter(s=>s.studentId===student.id).reduce((a,s)=>a+(s.durationSeconds||0),0);
+    student.totalHours = Number((newTotalSec/3600).toFixed(2));
+    saveLS(LS_KEYS.students, students);
+    toast(`Saved ${fmtDur(durationSeconds)} to ${student.name}'s file`);
+  }
+  swElapsedMs = 0;
+  render();
+}
+
+/* ---------------- SHARED / INIT ---------------- */
+function render(){
+  document.getElementById('tab-roster').style.display = currentTab==='roster' ? 'block':'none';
+  document.getElementById('tab-materials').style.display = currentTab==='materials' ? 'block':'none';
+  document.getElementById('tab-stopwatch').style.display = currentTab==='stopwatch' ? 'block':'none';
+  if(currentTab==='roster') renderRoster();
+  if(currentTab==='materials') renderMaterials();
+  if(currentTab==='stopwatch') renderStopwatch();
+}
+
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(swState!=='idle'){ toast('Stopwatch is running — end the session first'); return; }
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentTab = btn.dataset.tab;
+    viewingStudentId = null;
+    render();
+  });
+});
+
+render();
