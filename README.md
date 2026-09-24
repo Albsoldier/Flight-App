@@ -10,12 +10,17 @@ A lightweight web app for managing a flight school's student roster, teaching ma
 
 - **Login & roles** — the first person to sign in creates the admin account. Admins can then generate accounts for instructors (full access) and students (view-only access to their own record and materials), with a one-time-shown password for each.
 
+- **Live "who's online" tracker** — a real-time count of who's currently signed in, visible to everyone in the header; admins see per-user online/offline status in the Users tab. Requires a free Firebase project (see below) — the site works fine without one, the badge just shows "not configured."
+
 ## Files
 
 - `index.html` — page structure
 - `style.css` — styling (dark theme, auto-adapts to light mode)
 - `auth.js` — login, roles, and admin user management
 - `app.js` — roster/materials/stopwatch logic and data storage
+- `firebase-config.js` — your Firebase project keys for the live tracker (setup instructions inside the file)
+- `presence.js` — live cross-device "who's online" tracking
+- `logo.png` — header logo / favicon
 
 ## Roles
 
@@ -39,6 +44,10 @@ Everything is saved locally in the browser you're using — nothing goes to a se
 If you need true cross-device sync or need to hand storage limits off entirely, that requires a real backend (Firebase, Supabase, S3, etc.) instead of browser storage.
 
 If you outgrow this, swap the storage functions at the top of `app.js` (`loadLS` / `saveLS`) for calls to a real backend (Firebase, Supabase, a small REST API, etc.) — the rest of the app doesn't need to change.
+
+## Setting up the live online-user tracker
+
+Open `firebase-config.js` — it has full step-by-step instructions in the comments (create a free Firebase project, enable Realtime Database + Anonymous auth, paste in your config). Takes about 5 minutes. Until you fill it in, the app works normally and the header badge just reads "not configured."
 
 ## Running locally
 

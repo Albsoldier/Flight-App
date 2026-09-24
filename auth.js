@@ -54,6 +54,7 @@ async function showApp(){
   document.getElementById('appScreen').style.display='block';
   document.getElementById('whoami').textContent = `${currentUser.username} · ${currentUser.role}`;
   applyRoleUI();
+  if(typeof startPresence === 'function') startPresence(currentUser);
   await materialsReady;
   render();
 }
@@ -88,6 +89,7 @@ async function handleLogin(){
 }
 
 function logout(){
+  if(typeof stopPresence === 'function') stopPresence();
   currentUser = null;
   localStorage.removeItem(LS_SESSION);
   showLogin();
@@ -149,9 +151,13 @@ function renderUsers(){
   html += `<div class="card"><h2>All Users (${users.length})</h2>`;
   users.forEach(u=>{
     const linked = u.linkedStudentId ? (students.find(s=>s.id===u.linkedStudentId)||{}).name : null;
+    const online = typeof isUserOnline === 'function' && isUserOnline(u.id);
+    const statusDot = presenceConfigured
+      ? `<span style="color:${online?'var(--good)':'var(--muted)'}">● ${online?'Online':'Offline'}</span>`
+      : '';
     html += `<div class="student-item">
       <div><div class="name">${esc(u.username)}</div>
-      <div class="meta">${u.role}${linked ? ' · linked to '+esc(linked) : ''}</div></div>
+      <div class="meta">${u.role}${linked ? ' · linked to '+esc(linked) : ''} ${statusDot ? '· '+statusDot : ''}</div></div>
       <div class="row">
         <button class="btn secondary" onclick="resetPassword('${u.id}')">Reset password</button>
         ${u.id!==currentUser.id ? `<button class="btn danger" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
