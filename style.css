@@ -1,7 +1,7 @@
 :root{
   --bg:#0b1220; --panel:#121a2b; --panel2:#0f1729; --line:#1f2b45;
-  --text:#e8edf7; --muted:#8ba0c4; --accent:#f5a623; --accent2:#3ba7ff;
-  --danger:#ff5c5c; --good:#3ecf8e;
+  --text:#e8edf7; --muted:#8ba0c4; --accent:#d4a017; --accent2:#3f6fd6;
+  --danger:#ff5c5c; --good:#2e8b57;
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
@@ -22,6 +22,8 @@ body{
 .wrap{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
 #loginScreen{min-height:100vh;}
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.brand{display:flex;align-items:center;gap:12px;}
+.logo{width:46px;height:46px;object-fit:contain;flex-shrink:0;}
 header h1{font-size:1.3rem;margin:0;letter-spacing:.3px;}
 header .tag{color:var(--muted);font-size:.8rem;}
 nav{display:flex;gap:6px;background:var(--panel2);padding:5px;border-radius:12px;margin-bottom:20px;overflow-x:auto;}

@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Flight School Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+<title>San Andreas Aviation Administration — Flight School Dashboard</title>
+<link rel="icon" href="logo.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap" id="loginScreen" style="display:none">
-  <header><div><h1>✈️ Flight School Dashboard</h1></div></header>
+  <header><div class="brand"><img src="logo.png" alt="San Andreas Aviation Administration" class="logo"><h1>Flight School Dashboard</h1></div></header>
   <div class="card" style="max-width:380px;margin:40px auto">
     <h2 id="loginTitle">Sign in</h2>
     <div class="field" style="margin-bottom:10px"><label class="small">Username</label><input id="loginUser"></div>
@@ -21,9 +21,12 @@
 
 <div class="wrap" id="appScreen" style="display:none">
   <header>
-    <div>
-      <h1>✈️ Flight School Dashboard</h1>
-      <div class="tag" id="whoami"></div>
+    <div class="brand">
+      <img src="logo.png" alt="San Andreas Aviation Administration" class="logo">
+      <div>
+        <h1>Flight School Dashboard</h1>
+        <div class="tag" id="whoami"></div>
+      </div>
     </div>
     <button class="btn secondary" onclick="logout()">Log out</button>
   </header>
