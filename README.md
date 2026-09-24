@@ -29,11 +29,14 @@ A lightweight web app for managing a flight school's student roster, teaching ma
 
 ## How data is stored
 
-This app uses the browser's `localStorage` — everything (students, materials, session logs) is saved locally in the browser you're using. That means:
+Everything is saved locally in the browser you're using — nothing goes to a server:
 
-- Data persists across page reloads and browser restarts, but **stays on that one device/browser** (no syncing between your phone and laptop).
-- Total storage is capped around 5–10MB depending on the browser, so keep uploaded files modest in size (a handful of PDFs/images is fine; large video files are not).
-- Clearing browser site data / cache will erase everything.
+- **Students & session logs** — `localStorage` (tiny amount of data, no practical limit for this use).
+- **Uploaded materials (files)** — `IndexedDB`, which holds far more than `localStorage`'s old ~5-10MB cap — typically hundreds of MB up to a few GB, depending on the browser and free disk space. If you previously used the `localStorage`-only version, your existing materials migrate to IndexedDB automatically the first time you load the updated app.
+- Data persists across reloads and restarts, but **stays on that one device/browser** — nothing syncs between your phone and laptop.
+- Clearing that browser's site data will erase everything.
+
+If you need true cross-device sync or need to hand storage limits off entirely, that requires a real backend (Firebase, Supabase, S3, etc.) instead of browser storage.
 
 If you outgrow this, swap the storage functions at the top of `app.js` (`loadLS` / `saveLS`) for calls to a real backend (Firebase, Supabase, a small REST API, etc.) — the rest of the app doesn't need to change.
 

@@ -49,11 +49,12 @@ function showLogin(){
   document.getElementById('loginUser').value='';
   document.getElementById('loginPass').value='';
 }
-function showApp(){
+async function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   document.getElementById('whoami').textContent = `${currentUser.username} · ${currentUser.role}`;
   applyRoleUI();
+  await materialsReady;
   render();
 }
 

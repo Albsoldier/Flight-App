@@ -1,4 +1,8 @@
-/* ---------------- STORAGE (localStorage-backed) ---------------- */
+/* ---------------- STORAGE ----------------
+   Students & sessions: localStorage (tiny, fine).
+   Materials (uploaded files): IndexedDB — holds far more than localStorage's
+   ~5-10MB cap (typically hundreds of MB to a few GB, a share of free disk space).
+------------------------------------------- */
 const LS_KEYS = { students: 'fs_students', materials: 'fs_materials', sessions: 'fs_sessions' };
 
 function loadLS(key){
@@ -10,9 +14,59 @@ function saveLS(key, arr){
   catch(e){ console.error('Storage save failed (quota?)', e); return false; }
 }
 
+let idbInstance = null;
+function openIDB(){
+  return new Promise((resolve, reject)=>{
+    if(idbInstance){ resolve(idbInstance); return; }
+    const req = indexedDB.open('fsDB', 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore('materials', {keyPath:'id'}); };
+    req.onsuccess = ()=>{ idbInstance = req.result; resolve(idbInstance); };
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function idbGetAll(){
+  const db = await openIDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('materials','readonly');
+    const req = tx.objectStore('materials').getAll();
+    req.onsuccess = ()=>resolve(req.result||[]);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function idbPut(doc){
+  const db = await openIDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('materials','readwrite');
+    tx.objectStore('materials').put(doc);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function idbDelete(id){
+  const db = await openIDB();
+  return new Promise((resolve, reject)=>{
+    const tx = db.transaction('materials','readwrite');
+    tx.objectStore('materials').delete(id);
+    tx.oncomplete = ()=>resolve(true);
+    tx.onerror = ()=>reject(tx.error);
+  });
+}
+async function migrateMaterialsIfNeeded(){
+  const legacy = loadLS(LS_KEYS.materials);
+  if(legacy.length){
+    for(const m of legacy){ try{ await idbPut(m); }catch(e){} }
+    localStorage.removeItem(LS_KEYS.materials); // free up the old localStorage quota
+  }
+}
+
 let students = loadLS(LS_KEYS.students);   // {id, name, aircraft, notes, totalHours}
-let materials = loadLS(LS_KEYS.materials); // {id, name, dataUrl, contentType, uploadedAt}
+let materials = [];                        // {id, name, dataUrl, contentType, uploadedAt} — loaded from IndexedDB
 let sessions = loadLS(LS_KEYS.sessions);   // {id, studentId, studentName, startedAt, endedAt, durationSeconds, note}
+
+const materialsReady = migrateMaterialsIfNeeded()
+  .then(idbGetAll)
+  .then(arr => { materials = arr; })
+  .catch(e => console.error('Could not load materials from IndexedDB', e));
 
 let currentTab = 'roster';
 let viewingStudentId = null;
@@ -142,7 +196,7 @@ function renderMaterials(){
         📎 Click to upload PDF, JPG, PNG, or other files
       </div>
       <input type="file" id="fileInput" style="display:none" multiple onchange="handleUpload(event)">
-      <div class="muted" style="font-size:.75rem;margin-top:8px">Files are stored in this browser only (not synced across devices). Keep individual files small — total storage is limited to a few MB.</div>
+      <div class="muted" style="font-size:.75rem;margin-top:8px">Files are stored in this browser only (not synced across devices) — capacity is typically hundreds of MB or more.</div>
     </div>`;
   }
   html += `<div class="card"><h2>Materials (${materials.length})</h2>`;
@@ -190,18 +244,17 @@ async function handleUpload(evt){
     try{
       const dataUrl = await fileToDataUrl(file);
       const doc = { id: uid(), name:file.name, dataUrl, contentType:file.type, uploadedAt: Date.now() };
+      await idbPut(doc);
       materials.push(doc);
-      const ok = saveLS(LS_KEYS.materials, materials);
-      if(!ok){ materials.pop(); toast('Storage full — try a smaller file'); break; }
       toast('Uploaded '+file.name);
     }catch(e){ toast('Upload failed: '+file.name); }
   }
   evt.target.value = '';
   render();
 }
-function deleteMaterial(id){
+async function deleteMaterial(id){
   materials = materials.filter(m=>m.id!==id);
-  saveLS(LS_KEYS.materials, materials);
+  try{ await idbDelete(id); }catch(e){}
   render();
 }
 
