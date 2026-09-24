@@ -2,31 +2,29 @@
   --bg:#0b1220; --panel:#121a2b; --panel2:#0f1729; --line:#1f2b45;
   --text:#e8edf7; --muted:#8ba0c4; --accent:#d4a017; --accent2:#3f6fd6;
   --danger:#ff5c5c; --good:#2e8b57;
-  --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='white' opacity='0.06' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='white' opacity='0.045' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='white' opacity='0.05' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='white' stroke-width='2' stroke-dasharray='18 14' opacity='0.045'/><line x1='0' y1='40' x2='420' y2='40' stroke='white' stroke-width='1' stroke-dasharray='4 10' opacity='0.03'/></svg>");
+  --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='white' opacity='0.10' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='white' opacity='0.08' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='white' opacity='0.09' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='white' stroke-width='2' stroke-dasharray='18 14' opacity='0.08'/><line x1='0' y1='40' x2='420' y2='40' stroke='white' stroke-width='1' stroke-dasharray='4 10' opacity='0.06'/></svg>");
 }
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
     --bg:#f4f6fb; --panel:#ffffff; --panel2:#eef1f8; --line:#dde3f0;
     --text:#101828; --muted:#5b6b8c;
-    --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='black' opacity='0.05' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='black' opacity='0.04' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='black' opacity='0.045' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='black' stroke-width='2' stroke-dasharray='18 14' opacity='0.04'/><line x1='0' y1='40' x2='420' y2='40' stroke='black' stroke-width='1' stroke-dasharray='4 10' opacity='0.025'/></svg>");
+    --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='black' opacity='0.09' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='black' opacity='0.04' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='black' opacity='0.08' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='black' stroke-width='2' stroke-dasharray='18 14' opacity='0.04'/><line x1='0' y1='40' x2='420' y2='40' stroke='black' stroke-width='1' stroke-dasharray='4 10' opacity='0.025'/></svg>");
   }
 }
 :root[data-theme="light"]{
   --bg:#f4f6fb; --panel:#ffffff; --panel2:#eef1f8; --line:#dde3f0;
   --text:#101828; --muted:#5b6b8c;
-  --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='black' opacity='0.05' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='black' opacity='0.04' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='black' opacity='0.045' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='black' stroke-width='2' stroke-dasharray='18 14' opacity='0.04'/><line x1='0' y1='40' x2='420' y2='40' stroke='black' stroke-width='1' stroke-dasharray='4 10' opacity='0.025'/></svg>");
+  --bg-pattern: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><text x='15' y='80' font-size='46' fill='black' opacity='0.09' transform='rotate(20 15 80)'>%E2%9C%88</text><text x='240' y='210' font-size='64' fill='black' opacity='0.04' transform='rotate(-15 240 210)'>%E2%9C%88</text><text x='90' y='350' font-size='50' fill='black' opacity='0.08' transform='rotate(8 90 350)'>%E2%9C%88</text><line x1='0' y1='270' x2='420' y2='270' stroke='black' stroke-width='2' stroke-dasharray='18 14' opacity='0.04'/><line x1='0' y1='40' x2='420' y2='40' stroke='black' stroke-width='1' stroke-dasharray='4 10' opacity='0.025'/></svg>");
 }
 *{box-sizing:border-box;}
 html,body{height:100%;}
 body{
   margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   background-color:var(--bg); color:var(--text);
-  background-image:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, transparent), var(--bg) 70%),
-    var(--bg-pattern);
-  background-repeat: no-repeat, repeat;
-  background-size: 100% 100%, 420px 420px;
-  background-attachment: fixed, fixed;
+  background-image: var(--bg-pattern);
+  background-repeat: repeat;
+  background-size: 420px 420px;
+  background-attachment: fixed;
 }
 .wrap{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
 #loginScreen{min-height:100vh;}
