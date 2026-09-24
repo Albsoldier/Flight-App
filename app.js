@@ -36,6 +36,7 @@ function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'
 /* ---------------- ROSTER ---------------- */
 function renderRoster(){
   const el = document.getElementById('tab-roster');
+  if(isStudent()){ viewingStudentId = currentUser.linkedStudentId; renderStudentDetail(el, true); return; }
   if(viewingStudentId){ renderStudentDetail(el); return; }
 
   let html = `<div class="card">
@@ -89,9 +90,12 @@ function addStudent(){
 
 function viewStudent(id){ viewingStudentId = id; render(); }
 
-function renderStudentDetail(el){
+function renderStudentDetail(el, readOnly){
   const st = students.find(s=>s.id===viewingStudentId);
-  if(!st){ viewingStudentId=null; renderRoster(); return; }
+  if(!st){
+    if(readOnly){ el.innerHTML = `<div class="empty">Your account isn't linked to a roster record yet — ask your instructor.</div>`; return; }
+    viewingStudentId=null; renderRoster(); return;
+  }
   const studentSessions = sessions.filter(s=>s.studentId===st.id).sort((a,b)=>(b.endedAt||0)-(a.endedAt||0));
   const total = totalHoursFor(st.id, st.totalHours);
 
@@ -101,14 +105,18 @@ function renderStudentDetail(el){
       <span><strong>${fmtDur(s.durationSeconds||0)}</strong></span>
     </div>`).join('') : `<div class="empty">No logged sessions yet.</div>`;
 
+  const notesBlock = readOnly
+    ? `<label class="small">Notes from your instructor</label><div style="white-space:pre-wrap">${esc(st.notes||'No notes yet.')}</div>`
+    : `<label class="small">Notes</label>
+       <textarea id="studentNotes" rows="3" style="width:100%" placeholder="Progress notes...">${esc(st.notes||'')}</textarea>
+       <div style="margin-top:8px"><button class="btn secondary" onclick="saveNotes('${st.id}')">Save notes</button></div>`;
+
   el.innerHTML = `
-    <button class="detail-back" onclick="viewingStudentId=null; render();">← Back to roster</button>
+    ${readOnly ? '' : `<button class="detail-back" onclick="viewingStudentId=null; render();">← Back to roster</button>`}
     <div class="card">
       <h2>${esc(st.name)}</h2>
       <div class="muted" style="margin-bottom:10px">${esc(st.aircraft||'No aircraft set')} · <span class="pill">${total} total hrs</span></div>
-      <label class="small">Notes</label>
-      <textarea id="studentNotes" rows="3" style="width:100%" placeholder="Progress notes...">${esc(st.notes||'')}</textarea>
-      <div style="margin-top:8px"><button class="btn secondary" onclick="saveNotes('${st.id}')">Save notes</button></div>
+      ${notesBlock}
     </div>
     <div class="card">
       <h2>Flight session log</h2>
@@ -126,15 +134,18 @@ function saveNotes(id){
 /* ---------------- MATERIALS ---------------- */
 function renderMaterials(){
   const el = document.getElementById('tab-materials');
-  let html = `<div class="card">
-    <h2>Upload Teaching Material</h2>
-    <div class="upload-drop" onclick="document.getElementById('fileInput').click()">
-      📎 Click to upload PDF, JPG, PNG, or other files
-    </div>
-    <input type="file" id="fileInput" style="display:none" multiple onchange="handleUpload(event)">
-    <div class="muted" style="font-size:.75rem;margin-top:8px">Files are stored in this browser only (not synced across devices). Keep individual files small — total storage is limited to a few MB.</div>
-  </div>
-  <div class="card"><h2>Materials (${materials.length})</h2>`;
+  let html = '';
+  if(isStaff()){
+    html += `<div class="card">
+      <h2>Upload Teaching Material</h2>
+      <div class="upload-drop" onclick="document.getElementById('fileInput').click()">
+        📎 Click to upload PDF, JPG, PNG, or other files
+      </div>
+      <input type="file" id="fileInput" style="display:none" multiple onchange="handleUpload(event)">
+      <div class="muted" style="font-size:.75rem;margin-top:8px">Files are stored in this browser only (not synced across devices). Keep individual files small — total storage is limited to a few MB.</div>
+    </div>`;
+  }
+  html += `<div class="card"><h2>Materials (${materials.length})</h2>`;
 
   if(materials.length===0){
     html += `<div class="empty">No materials uploaded yet.</div>`;
@@ -150,7 +161,7 @@ function renderMaterials(){
         </div>
         <div class="row">
           <a class="btn secondary" href="${m.dataUrl}" download="${esc(m.name)}">Download</a>
-          <button class="btn danger" onclick="deleteMaterial('${m.id}')">Delete</button>
+          ${isStaff() ? `<button class="btn danger" onclick="deleteMaterial('${m.id}')">Delete</button>` : ''}
         </div>
       </div>`;
     });
@@ -279,12 +290,15 @@ function endStopwatch(){
 
 /* ---------------- SHARED / INIT ---------------- */
 function render(){
+  if(!currentUser) return;
   document.getElementById('tab-roster').style.display = currentTab==='roster' ? 'block':'none';
   document.getElementById('tab-materials').style.display = currentTab==='materials' ? 'block':'none';
   document.getElementById('tab-stopwatch').style.display = currentTab==='stopwatch' ? 'block':'none';
+  document.getElementById('tab-users').style.display = currentTab==='users' ? 'block':'none';
   if(currentTab==='roster') renderRoster();
   if(currentTab==='materials') renderMaterials();
-  if(currentTab==='stopwatch') renderStopwatch();
+  if(currentTab==='stopwatch' && isStaff()) renderStopwatch();
+  if(currentTab==='users') renderUsers();
 }
 
 document.querySelectorAll('nav button').forEach(btn=>{
@@ -293,9 +307,9 @@ document.querySelectorAll('nav button').forEach(btn=>{
     document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     currentTab = btn.dataset.tab;
-    viewingStudentId = null;
+    if(!isStudent()) viewingStudentId = null;
     render();
   });
 });
 
-render();
+initAuth();
