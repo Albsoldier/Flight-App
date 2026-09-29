@@ -8,6 +8,11 @@ const db = new Database(DB_PATH);
 db.pragma('foreign_keys = ON');
 db.pragma('journal_mode = WAL');
 
+// Safe migration: add pilot_role column if missing
+try {
+  db.exec("ALTER TABLE flight_sessions ADD COLUMN pilot_role TEXT DEFAULT 'student'");
+} catch (e) { /* already exists */ }
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +41,7 @@ db.exec(`
     flight_type TEXT,
     notes TEXT,
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'cancelled')),
+    pilot_role TEXT DEFAULT 'student',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES users(id),
     FOREIGN KEY (instructor_id) REFERENCES users(id)
