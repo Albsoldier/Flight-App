@@ -32,6 +32,9 @@ app.use(session({
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Make io globally accessible to routes
+app.set('io', io);
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/flights', require('./routes/flights'));
@@ -44,7 +47,7 @@ app.get('/api/health', function(req, res) {
 app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'public', 'index.html'), function(err) {
     if (err) {
-      res.status(200).send('<h1>San Andreas Aviation Administration</h1><p>Server is running. Check /api/health</p>');
+      res.status(200).send('<h1>San Andreas Aviation Administration</h1><p>Server is running.</p>');
     }
   });
 });
