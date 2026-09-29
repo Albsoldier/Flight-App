@@ -217,15 +217,50 @@ function loadUsers() {
       document.getElementById('usersList').innerHTML = '<p class="muted">No users yet.</p>';
       return;
     }
-    var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th></tr></thead><tbody>';
+
+    var isAdmin = currentUser && currentUser.role === 'admin';
+    var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th>' +
+               (isAdmin ? '<th>Actions</th>' : '') +
+               '</tr></thead><tbody>';
+
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
-      html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + u.full_name + '</td><td><span class="badge badge-' + u.role + '">' + u.role + '</span></td><td>' + (u.total_hours || 0).toFixed(1) + '</td></tr>';
+      html += '<tr>';
+      html += '<td>' + u.id + '</td>';
+      html += '<td>' + u.username + '</td>';
+      html += '<td>' + u.full_name + '</td>';
+      html += '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>';
+      html += '<td>' + (u.total_hours || 0).toFixed(1) + '</td>';
+
+      if (isAdmin) {
+        html += '<td>';
+        if (u.role !== 'admin') {
+          html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + u.username.replace(/'/g, "\\'") + '\')">Delete</button>';
+        } else {
+          html += '<span class="muted">—</span>';
+        }
+        html += '</td>';
+      }
+
+      html += '</tr>';
     }
     html += '</tbody></table>';
     document.getElementById('usersList').innerHTML = html;
   }).catch(function(err) {
     document.getElementById('usersList').innerHTML = '<p class="muted">' + err.message + '</p>';
+  });
+}
+
+function deleteUser(id, username) {
+  if (!confirm('Delete user "' + username + '" permanently?\n\nThis will also delete all their flight sessions. This cannot be undone.')) {
+    return;
+  }
+  api('/api/admin/users/' + id + '/hard', { method: 'DELETE' }).then(function() {
+    showMessage('User "' + username + '" deleted', 'success');
+    loadUsers();
+    loadStats();
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
   });
 }
 
