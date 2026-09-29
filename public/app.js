@@ -31,6 +31,13 @@ function showMessage(text, type) {
   setTimeout(function() { el.textContent = ''; el.className = 'message'; }, 5000);
 }
 
+function fmtDate(str) {
+  if (!str) return '—';
+  var d = new Date(String(str).replace(' ', 'T') + 'Z');
+  if (isNaN(d.getTime())) return str;
+  return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
+}
+
 // ---------- LOGIN ----------
 function initLoginPage() {
   api('/api/auth/status').then(function(status) {
@@ -118,10 +125,36 @@ function setupDashboard() {
   var onlineCard = document.getElementById('onlineUsersCard');
   if (onlineCard) onlineCard.style.display = isAdmin ? 'block' : 'none';
 
+  if (isAdmin) {
+    var c = document.getElementById('allLogsCrumb');
+    if (c) c.style.display = 'inline-block';
+    var s = document.getElementById('allLogsSep');
+    if (s) s.style.display = 'inline';
+  }
+
   if (role === 'student') {
     var input = document.getElementById('flightStudentId');
     input.value = currentUser.id;
     input.disabled = true;
+  }
+
+  if (canManage) {
+    var selfField = document.getElementById('selfLogField');
+    if (selfField) selfField.style.display = 'block';
+
+    var selfCheck = document.getElementById('selfLogCheck');
+    if (selfCheck) {
+      selfCheck.addEventListener('change', function() {
+        var studentInput = document.getElementById('flightStudentId');
+        if (this.checked) {
+          studentInput.value = currentUser.id;
+          studentInput.disabled = true;
+        } else {
+          studentInput.value = '';
+          studentInput.disabled = false;
+        }
+      });
+    }
   }
 
   if (isInstructor) {
@@ -163,6 +196,11 @@ function setupDashboard() {
   document.getElementById('startFlightBtn').addEventListener('click', startFlight);
   document.getElementById('stopFlightBtn').addEventListener('click', stopFlight);
   document.getElementById('refreshMaterials').addEventListener('click', loadMaterials);
+  document.getElementById('refreshMyLog').addEventListener('click', loadMyLog);
+
+  if (isAdmin) {
+    document.getElementById('refreshAllLogs').addEventListener('click', loadAllLogs);
+  }
 
   if (canManage) {
     document.getElementById('uploadForm').addEventListener('submit', uploadMaterial);
@@ -172,6 +210,8 @@ function setupDashboard() {
   if (isAdmin) loadOnlineUsers();
   if (canManage) loadUsers();
   loadMaterials();
+  loadMyLog();
+  if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
 
@@ -180,26 +220,29 @@ function setupDashboard() {
   initBreadcrumbNav();
 }
 
-// ---------- RESUME ACTIVE FLIGHT ----------
+// ---------- RESUME ----------
 function resumeActiveFlight() {
   if (currentUser.role === 'student') {
     api('/api/flights/sessions/active/' + currentUser.id).then(function(res) {
-      if (res.active) {
-        attachActiveSession(res.session);
-      }
+      if (res.active) attachActiveSession(res.session);
     }).catch(function() {});
     return;
   }
 
-  // Admin/instructor — list all active sessions
-  api('/api/flights/sessions/active/all').then(function(data) {
-    if (data.sessions && data.sessions.length > 0) {
-      var latest = data.sessions[0];
-      var start = new Date(latest.start_time);
-      var now = new Date();
-      latest.elapsedSeconds = Math.floor((now - start) / 1000);
-      attachActiveSession(latest);
+  api('/api/flights/sessions/active/' + currentUser.id).then(function(res) {
+    if (res.active) {
+      attachActiveSession(res.session);
+      return;
     }
+    api('/api/flights/sessions/active/all').then(function(data) {
+      if (data.sessions && data.sessions.length > 0) {
+        var latest = data.sessions[0];
+        var start = new Date(latest.start_time);
+        var now = new Date();
+        latest.elapsedSeconds = Math.floor((now - start) / 1000);
+        attachActiveSession(latest);
+      }
+    }).catch(function() {});
   }).catch(function() {});
 }
 
@@ -209,23 +252,20 @@ function attachActiveSession(session) {
   stopwatchStartTime = Date.now() - (session.elapsedSeconds * 1000);
 
   var input = document.getElementById('flightStudentId');
-  if (input && !input.disabled) {
-    input.value = session.student_id;
-  }
+  if (input && !input.disabled) input.value = session.student_id;
 
   startStopwatchDisplay();
-
   document.getElementById('startFlightBtn').disabled = true;
   document.getElementById('stopFlightBtn').disabled = false;
   document.getElementById('stopwatchDisplay').classList.add('running');
 
   var info = document.getElementById('activeSession');
   if (info) {
-    info.textContent = 'Active flight #' + session.id + ' — Student: ' + (session.student_name || session.student_id);
+    info.textContent = 'Active flight #' + session.id + ' — ' + (session.student_name || session.student_id);
   }
 }
 
-// ---------- UTC CLOCK ----------
+// ---------- CLOCK ----------
 function startUtcClock() {
   function tick() {
     var now = new Date();
@@ -233,10 +273,8 @@ function startUtcClock() {
     var m = ('0' + now.getUTCMinutes()).slice(-2);
     var s = ('0' + now.getUTCSeconds()).slice(-2);
     var timeStr = h + ':' + m + ':' + s;
-
     var clockEl = document.getElementById('utcClock');
     if (clockEl) clockEl.textContent = timeStr + 'Z';
-
     var rightEl = document.getElementById('clockRight');
     if (rightEl) rightEl.textContent = 'UTC ' + timeStr + 'Z';
   }
@@ -245,50 +283,41 @@ function startUtcClock() {
   utcClockInterval = setInterval(tick, 1000);
 }
 
-// ---------- BREADCRUMB NAVIGATION ----------
+// ---------- BREADCRUMB ----------
 function initBreadcrumbNav() {
   var links = document.querySelectorAll('.breadcrumb-item[data-target]');
   if (links.length === 0) return;
 
-  function setActiveBreadcrumb(id) {
+  function setActive(id) {
     for (var j = 0; j < links.length; j++) {
-      if (links[j].getAttribute('data-target') === id) {
-        links[j].classList.add('active');
-      } else {
-        links[j].classList.remove('active');
-      }
+      if (links[j].getAttribute('data-target') === id) links[j].classList.add('active');
+      else links[j].classList.remove('active');
     }
   }
 
   for (var i = 0; i < links.length; i++) {
     links[i].addEventListener('click', function(e) {
       e.preventDefault();
-      var targetId = this.getAttribute('data-target');
-      var target = document.getElementById(targetId);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-      setActiveBreadcrumb(targetId);
+      var tid = this.getAttribute('data-target');
+      var t = document.getElementById(tid);
+      if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActive(tid);
     });
   }
 
-  function updateActiveOnScroll() {
-    var scrollPos = window.scrollY + 160;
+  function upd() {
+    var sp = window.scrollY + 160;
     var activeId = null;
-
     for (var k = 0; k < links.length; k++) {
-      var targetId = links[k].getAttribute('data-target');
-      var el = document.getElementById(targetId);
-      if (el && el.offsetTop <= scrollPos) {
-        activeId = targetId;
-      }
+      var tid = links[k].getAttribute('data-target');
+      var el = document.getElementById(tid);
+      if (el && el.style.display !== 'none' && el.offsetTop <= sp) activeId = tid;
     }
-
-    if (activeId) setActiveBreadcrumb(activeId);
+    if (activeId) setActive(activeId);
   }
 
-  window.addEventListener('scroll', updateActiveOnScroll, { passive: true });
-  updateActiveOnScroll();
+  window.addEventListener('scroll', upd, { passive: true });
+  upd();
 }
 
 // ---------- LOADERS ----------
@@ -325,21 +354,14 @@ function loadUsers() {
       document.getElementById('usersList').innerHTML = '<p class="muted">No users yet.</p>';
       return;
     }
-
     var isAdmin = currentUser && currentUser.role === 'admin';
     var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th>' +
-               (isAdmin ? '<th>Actions</th>' : '') +
-               '</tr></thead><tbody>';
-
+               (isAdmin ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
-      html += '<tr>';
-      html += '<td>' + u.id + '</td>';
-      html += '<td>' + u.username + '</td>';
-      html += '<td>' + u.full_name + '</td>';
-      html += '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>';
-      html += '<td>' + (u.total_hours || 0).toFixed(1) + '</td>';
-
+      html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + u.full_name + '</td>' +
+              '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
+              '<td>' + (u.total_hours || 0).toFixed(1) + '</td>';
       if (isAdmin) {
         html += '<td>';
         if (u.role !== 'admin') {
@@ -349,7 +371,6 @@ function loadUsers() {
         }
         html += '</td>';
       }
-
       html += '</tr>';
     }
     html += '</tbody></table>';
@@ -360,15 +381,80 @@ function loadUsers() {
 }
 
 function deleteUser(id, username) {
-  if (!confirm('Delete user "' + username + '" permanently?\n\nThis will also delete all their flight sessions. This cannot be undone.')) {
-    return;
-  }
+  if (!confirm('Delete user "' + username + '" permanently?\n\nThis will also delete all their flight sessions. This cannot be undone.')) return;
   api('/api/admin/users/' + id + '/hard', { method: 'DELETE' }).then(function() {
     showMessage('User "' + username + '" deleted', 'success');
     loadUsers();
     loadStats();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+// ---------- MY FLIGHT LOG ----------
+function loadMyLog() {
+  api('/api/flights/sessions/my').then(function(data) {
+    if (!data.sessions || data.sessions.length === 0) {
+      document.getElementById('myLogList').innerHTML = '<p class="muted">No flights logged yet.</p>';
+      return;
+    }
+
+    var totalHours = 0;
+    for (var t = 0; t < data.sessions.length; t++) {
+      totalHours += (data.sessions[t].duration_hours || 0);
+    }
+
+    var html = '<p class="muted" style="margin-bottom:10px;">Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + data.sessions.length + ' flights</p>';
+    html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Duration</th></tr></thead><tbody>';
+
+    for (var i = 0; i < data.sessions.length; i++) {
+      var s = data.sessions[i];
+      html += '<tr>' +
+        '<td>' + fmtDate(s.start_time) + '</td>' +
+        '<td>' + (s.aircraft || '—') + '</td>' +
+        '<td>' + (s.flight_type || '—') + '</td>' +
+        '<td>' + (s.instructor_name || (s.pilot_role === 'admin' || s.pilot_role === 'instructor' ? 'Self' : '—')) + '</td>' +
+        '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
+      '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('myLogList').innerHTML = html;
   }).catch(function(err) {
-    showMessage(err.message, 'error');
+    document.getElementById('myLogList').innerHTML = '<p class="muted">' + err.message + '</p>';
+  });
+}
+
+// ---------- ALL FLIGHT LOGS ----------
+function loadAllLogs() {
+  api('/api/flights/sessions/all').then(function(data) {
+    if (!data.sessions || data.sessions.length === 0) {
+      document.getElementById('allLogsList').innerHTML = '<p class="muted">No flight logs yet.</p>';
+      return;
+    }
+
+    var totalHours = 0;
+    for (var t = 0; t < data.sessions.length; t++) {
+      totalHours += (data.sessions[t].duration_hours || 0);
+    }
+
+    var html = '<p class="muted" style="margin-bottom:10px;">System Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + data.sessions.length + ' flights</p>';
+    html += '<table class="table"><thead><tr><th>Date</th><th>Pilot</th><th>Role</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Duration</th></tr></thead><tbody>';
+
+    for (var i = 0; i < data.sessions.length; i++) {
+      var s = data.sessions[i];
+      var role = s.pilot_role || s.pilot_role_actual || 'student';
+      html += '<tr>' +
+        '<td>' + fmtDate(s.start_time) + '</td>' +
+        '<td>' + (s.pilot_name || '—') + '</td>' +
+        '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
+        '<td>' + (s.aircraft || '—') + '</td>' +
+        '<td>' + (s.flight_type || '—') + '</td>' +
+        '<td>' + (s.instructor_name || '—') + '</td>' +
+        '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
+      '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('allLogsList').innerHTML = html;
+  }).catch(function(err) {
+    document.getElementById('allLogsList').innerHTML = '<p class="muted">' + err.message + '</p>';
   });
 }
 
@@ -378,30 +464,39 @@ function startFlight() {
     return showMessage('A flight is already active — stop it first', 'error');
   }
 
+  var selfLogCheck = document.getElementById('selfLogCheck');
+  var selfLog = selfLogCheck && selfLogCheck.checked;
   var studentId = document.getElementById('flightStudentId').value;
-  if (!studentId) return showMessage('Enter a student ID', 'error');
+  if (!studentId && !selfLog) return showMessage('Enter a student ID', 'error');
+
+  var body = {
+    aircraft: document.getElementById('flightAircraft').value,
+    flightType: document.getElementById('flightType').value
+  };
+  if (selfLog) {
+    body.selfLog = true;
+  } else {
+    body.studentId = parseInt(studentId);
+  }
 
   api('/api/flights/sessions/start', {
     method: 'POST',
-    body: JSON.stringify({
-      studentId: parseInt(studentId),
-      aircraft: document.getElementById('flightAircraft').value,
-      flightType: document.getElementById('flightType').value
-    })
+    body: JSON.stringify(body)
   }).then(function(data) {
     activeSessionId = data.sessionId;
-    activeSessionStudentId = parseInt(studentId);
+    activeSessionStudentId = selfLog ? currentUser.id : parseInt(studentId);
     stopwatchStartTime = Date.now();
     startStopwatchDisplay();
     document.getElementById('startFlightBtn').disabled = true;
     document.getElementById('stopFlightBtn').disabled = false;
-    document.getElementById('activeSession').textContent = 'Active session #' + activeSessionId;
+    document.getElementById('activeSession').textContent =
+      'Active session #' + activeSessionId + (selfLog ? ' (self-log)' : '');
     document.getElementById('stopwatchDisplay').classList.add('running');
     showMessage('Flight started', 'success');
   }).catch(function(err) {
     if (err.message && err.message.indexOf('already has active session') !== -1) {
       showMessage('Recovering stuck session...', 'info');
-      recoverStuckSession(parseInt(studentId));
+      recoverStuckSession(selfLog ? currentUser.id : parseInt(studentId));
     } else {
       showMessage(err.message, 'error');
     }
@@ -414,11 +509,9 @@ function recoverStuckSession(studentId) {
       attachActiveSession(res.session);
       showMessage('Recovered active flight #' + res.session.id, 'success');
     } else {
-      showMessage('No active session found to recover', 'error');
+      showMessage('No active session found', 'error');
     }
-  }).catch(function(err) {
-    showMessage(err.message, 'error');
-  });
+  }).catch(function(err) { showMessage(err.message, 'error'); });
 }
 
 function startStopwatchDisplay() {
@@ -440,7 +533,7 @@ function stopFlight() {
   if (!activeSessionId) {
     var input = document.getElementById('flightStudentId');
     var targetId = currentUser.role === 'student' ? currentUser.id : (input && input.value ? parseInt(input.value) : null);
-    if (!targetId) return showMessage('Enter a student ID to recover their flight', 'error');
+    if (!targetId) return showMessage('Enter a student ID to recover', 'error');
     return recoverStuckSession(targetId);
   }
   doStopFlight();
@@ -466,6 +559,8 @@ function doStopFlight() {
       loadStats();
       loadUsers();
     }
+    loadMyLog();
+    if (currentUser && currentUser.role === 'admin') loadAllLogs();
   }).catch(function(err) {
     showMessage(err.message, 'error');
   });
