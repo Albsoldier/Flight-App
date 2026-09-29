@@ -52,8 +52,17 @@ router.get('/users', authMiddleware.isInstructor, function(req, res) {
   }
   query += ' ORDER BY created_at DESC';
 
-  var users = database.db.prepare(query).all.apply(database.db.prepare(query), params);
+  var stmt = database.db.prepare(query);
+  var users = params.length > 0 ? stmt.all.apply(stmt, params) : stmt.all();
   res.json({ users: users });
+});
+
+// LIST ALL INSTRUCTORS — available to any authenticated user (for the flight form dropdown)
+router.get('/instructors', authMiddleware.isAuthenticated, function(req, res) {
+  var instructors = database.db.prepare(
+    "SELECT id, username, full_name FROM users WHERE role = 'instructor' AND is_active = 1 ORDER BY full_name ASC"
+  ).all();
+  res.json({ instructors: instructors });
 });
 
 router.put('/users/:id', authMiddleware.isInstructor, function(req, res) {
@@ -79,7 +88,8 @@ router.put('/users/:id', authMiddleware.isInstructor, function(req, res) {
   if (updates.length === 0) return res.status(400).json({ error: 'No updates' });
 
   params.push(id);
-  database.db.prepare('UPDATE users SET ' + updates.join(', ') + ' WHERE id = ?').run.apply(database.db.prepare('UPDATE users SET ' + updates.join(', ') + ' WHERE id = ?'), params);
+  var stmt = database.db.prepare('UPDATE users SET ' + updates.join(', ') + ' WHERE id = ?');
+  stmt.run.apply(stmt, params);
   res.json({ success: true });
 });
 
@@ -95,7 +105,6 @@ router.delete('/users/:id', authMiddleware.isInstructor, function(req, res) {
 });
 
 // HARD DELETE user — admin only
-// Removes user + all their flight sessions permanently
 router.delete('/users/:id/hard', authMiddleware.isAdmin, function(req, res) {
   const id = req.params.id;
 
@@ -105,7 +114,6 @@ router.delete('/users/:id/hard', authMiddleware.isAdmin, function(req, res) {
 
   const user = database.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!user) return res.status(404).json({ error: 'User not found' });
-
   if (user.role === 'admin') {
     return res.status(403).json({ error: 'Cannot delete other admin accounts' });
   }
