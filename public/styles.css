@@ -926,4 +926,47 @@ body:has(.container:only-child) .subtitle { text-align: center; }
   .stopwatch.running::before {
     animation: none;
   }
+/* ============================================
+   FLIGHT LOG TABLES
+   ============================================ */
+#myLogList .table,
+#allLogsList .table {
+  font-size: 0.85rem;
+}
+
+#myLogList .table td,
+#allLogsList .table td {
+  padding: 8px 10px;
+  font-family: 'Courier New', monospace;
+  color: #cbd5e1;
+}
+
+#myLogList .table th,
+#allLogsList .table th {
+  padding: 8px 10px;
+}
+
+#myLogList .table tbody tr:hover,
+#allLogsList .table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+/* Self-log checkbox row */
+#selfLogField {
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px dashed rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+#selfLogField label {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+#selfLogField input[type="checkbox"] {
+  accent-color: #38bdf8;
+  width: 16px;
+  height: 16px;
 }
