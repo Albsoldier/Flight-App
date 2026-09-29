@@ -67,20 +67,34 @@ function escapeHtml(s) {
 
 // ---------- THEME ----------
 function initTheme() {
-  var saved = localStorage.getItem('theme') || 'dark';
-  document.body.setAttribute('data-theme', saved);
-  updateThemeIcon(saved);
+  var saved = localStorage.getItem('theme');
+  if (saved !== 'light' && saved !== 'dark') saved = 'dark';
+  applyTheme(saved);
 
   var btn = document.getElementById('themeToggle');
   if (btn) {
     btn.addEventListener('click', function() {
-      var cur = document.body.getAttribute('data-theme') || 'dark';
+      var cur = document.documentElement.getAttribute('data-theme') || 'dark';
       var next = cur === 'dark' ? 'light' : 'dark';
-      document.body.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      updateThemeIcon(next);
+      applyTheme(next);
     });
   }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.body.setAttribute('data-theme', theme);
+
+  if (theme === 'light') {
+    document.body.classList.add('theme-light');
+    document.body.classList.remove('theme-dark');
+  } else {
+    document.body.classList.add('theme-dark');
+    document.body.classList.remove('theme-light');
+  }
+
+  localStorage.setItem('theme', theme);
+  updateThemeIcon(theme);
 }
 
 function updateThemeIcon(theme) {
