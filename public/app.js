@@ -2,6 +2,7 @@ var API_BASE = '';
 var currentUser = null;
 var stopwatchInterval = null;
 var activeSessionId = null;
+var activeSessionStudentId = null;
 var stopwatchStartTime = null;
 var utcClockInterval = null;
 
@@ -174,40 +175,54 @@ function setupDashboard() {
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
 
-  // ---------- RESUME ANY ACTIVE FLIGHT ----------
-  // Works for admin, instructor, and student
   resumeActiveFlight();
 
   initBreadcrumbNav();
 }
 
-// ---------- RESUME ACTIVE FLIGHT (any role) ----------
+// ---------- RESUME ACTIVE FLIGHT ----------
 function resumeActiveFlight() {
-  var targetId;
-
   if (currentUser.role === 'student') {
-    targetId = currentUser.id;
-  } else {
-    // Admin/instructor — check the student ID field if it has a value
-    var input = document.getElementById('flightStudentId');
-    if (input && input.value) {
-      targetId = parseInt(input.value);
-    }
+    api('/api/flights/sessions/active/' + currentUser.id).then(function(res) {
+      if (res.active) {
+        attachActiveSession(res.session);
+      }
+    }).catch(function() {});
+    return;
   }
 
-  if (!targetId) return;
-
-  api('/api/flights/sessions/active/' + targetId).then(function(res) {
-    if (res.active) {
-      activeSessionId = res.session.id;
-      stopwatchStartTime = Date.now() - (res.session.elapsedSeconds * 1000);
-      startStopwatchDisplay();
-      document.getElementById('startFlightBtn').disabled = true;
-      document.getElementById('stopFlightBtn').disabled = false;
-      document.getElementById('activeSession').textContent = 'Resumed flight #' + activeSessionId + ' for student ' + targetId;
-      document.getElementById('stopwatchDisplay').classList.add('running');
+  // Admin/instructor — list all active sessions
+  api('/api/flights/sessions/active/all').then(function(data) {
+    if (data.sessions && data.sessions.length > 0) {
+      var latest = data.sessions[0];
+      var start = new Date(latest.start_time);
+      var now = new Date();
+      latest.elapsedSeconds = Math.floor((now - start) / 1000);
+      attachActiveSession(latest);
     }
   }).catch(function() {});
+}
+
+function attachActiveSession(session) {
+  activeSessionId = session.id;
+  activeSessionStudentId = session.student_id;
+  stopwatchStartTime = Date.now() - (session.elapsedSeconds * 1000);
+
+  var input = document.getElementById('flightStudentId');
+  if (input && !input.disabled) {
+    input.value = session.student_id;
+  }
+
+  startStopwatchDisplay();
+
+  document.getElementById('startFlightBtn').disabled = true;
+  document.getElementById('stopFlightBtn').disabled = false;
+  document.getElementById('stopwatchDisplay').classList.add('running');
+
+  var info = document.getElementById('activeSession');
+  if (info) {
+    info.textContent = 'Active flight #' + session.id + ' — Student: ' + (session.student_name || session.student_id);
+  }
 }
 
 // ---------- UTC CLOCK ----------
@@ -359,6 +374,10 @@ function deleteUser(id, username) {
 
 // ---------- FLIGHT ----------
 function startFlight() {
+  if (activeSessionId) {
+    return showMessage('A flight is already active — stop it first', 'error');
+  }
+
   var studentId = document.getElementById('flightStudentId').value;
   if (!studentId) return showMessage('Enter a student ID', 'error');
 
@@ -371,6 +390,7 @@ function startFlight() {
     })
   }).then(function(data) {
     activeSessionId = data.sessionId;
+    activeSessionStudentId = parseInt(studentId);
     stopwatchStartTime = Date.now();
     startStopwatchDisplay();
     document.getElementById('startFlightBtn').disabled = true;
@@ -378,6 +398,24 @@ function startFlight() {
     document.getElementById('activeSession').textContent = 'Active session #' + activeSessionId;
     document.getElementById('stopwatchDisplay').classList.add('running');
     showMessage('Flight started', 'success');
+  }).catch(function(err) {
+    if (err.message && err.message.indexOf('already has active session') !== -1) {
+      showMessage('Recovering stuck session...', 'info');
+      recoverStuckSession(parseInt(studentId));
+    } else {
+      showMessage(err.message, 'error');
+    }
+  });
+}
+
+function recoverStuckSession(studentId) {
+  api('/api/flights/sessions/active/' + studentId).then(function(res) {
+    if (res.active) {
+      attachActiveSession(res.session);
+      showMessage('Recovered active flight #' + res.session.id, 'success');
+    } else {
+      showMessage('No active session found to recover', 'error');
+    }
   }).catch(function(err) {
     showMessage(err.message, 'error');
   });
@@ -400,21 +438,10 @@ function startStopwatchDisplay() {
 
 function stopFlight() {
   if (!activeSessionId) {
-    // Fallback: try to find active session server-side
     var input = document.getElementById('flightStudentId');
-    var targetId = currentUser.role === 'student' ? currentUser.id : (input ? parseInt(input.value) : null);
-    if (!targetId) return showMessage('No active flight to stop', 'error');
-
-    api('/api/flights/sessions/active/' + targetId).then(function(res) {
-      if (!res.active) {
-        return showMessage('No active flight found for student ' + targetId, 'error');
-      }
-      activeSessionId = res.session.id;
-      doStopFlight();
-    }).catch(function(err) {
-      showMessage(err.message, 'error');
-    });
-    return;
+    var targetId = currentUser.role === 'student' ? currentUser.id : (input && input.value ? parseInt(input.value) : null);
+    if (!targetId) return showMessage('Enter a student ID to recover their flight', 'error');
+    return recoverStuckSession(targetId);
   }
   doStopFlight();
 }
@@ -433,6 +460,7 @@ function doStopFlight() {
     document.getElementById('stopwatchDisplay').classList.remove('running');
     showMessage('Flight logged: ' + result.duration + ' hours', 'success');
     activeSessionId = null;
+    activeSessionStudentId = null;
     stopwatchStartTime = null;
     if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
       loadStats();
