@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Animated aviation background -->
   <div class="sky-clouds"></div>
   <div class="aircraft aircraft-1">✈</div>
   <div class="aircraft aircraft-2">✈</div>
@@ -23,7 +22,7 @@
         <span class="brand-title">San Andreas Aviation</span>
         <span class="brand-subtitle">Flight Tracker</span>
       </div>
-      <span class="n-number">N101BA</span>
+      <span class="n-number">N172SA</span>
     </div>
 
     <div class="topbar-center">
@@ -32,12 +31,10 @@
         <span class="light light-nav" title="NAV"></span>
         <span class="light light-xpdr" title="XPDR"></span>
       </div>
-
       <div class="wind-indicator" title="Wind: 270° at 8 kts">
         <span class="wind-arrow">↑</span>
         <span class="wind-label">270° / 08</span>
       </div>
-
       <div class="utc-clock" id="utcClock">--:--:--Z</div>
     </div>
 
@@ -48,11 +45,14 @@
     </div>
   </header>
 
-  <!-- Breadcrumb strip — clickable -->
   <div class="breadcrumb-strip">
     <a href="#section-dashboard" class="breadcrumb-item active" data-target="section-dashboard">◈ Dashboard</a>
     <span class="breadcrumb-sep">·</span>
     <a href="#section-flights" class="breadcrumb-item" data-target="section-flights">Flights</a>
+    <span class="breadcrumb-sep">·</span>
+    <a href="#section-mylog" class="breadcrumb-item" data-target="section-mylog">My Log</a>
+    <span class="breadcrumb-sep" id="allLogsSep" style="display:none;">·</span>
+    <a href="#section-alllogs" class="breadcrumb-item" data-target="section-alllogs" id="allLogsCrumb" style="display:none;">All Logs</a>
     <span class="breadcrumb-sep">·</span>
     <a href="#section-materials" class="breadcrumb-item" data-target="section-materials">Materials</a>
     <span class="breadcrumb-right" id="clockRight">UTC --:--:--</span>
@@ -117,6 +117,14 @@
 
     <section class="card" id="section-flights">
       <h2>Flight Stopwatch</h2>
+
+      <div class="field" id="selfLogField" style="display:none;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="selfLogCheck" style="width:auto; margin:0;">
+          <span>Log my own flight (self-log)</span>
+        </label>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label>Student ID</label>
@@ -137,6 +145,18 @@
         <button id="stopFlightBtn" class="btn-danger" disabled>Stop Flight</button>
       </div>
       <p id="activeSession" class="muted"></p>
+    </section>
+
+    <section class="card" id="section-mylog">
+      <h2>My Flight Log</h2>
+      <button id="refreshMyLog" class="btn-secondary">Refresh</button>
+      <div id="myLogList"></div>
+    </section>
+
+    <section class="card admin-only" id="section-alllogs" style="display:none;">
+      <h2>All Flight Logs</h2>
+      <button id="refreshAllLogs" class="btn-secondary">Refresh</button>
+      <div id="allLogsList"></div>
     </section>
 
     <section class="card" id="section-materials">
