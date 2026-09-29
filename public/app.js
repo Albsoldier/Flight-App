@@ -174,20 +174,40 @@ function setupDashboard() {
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
 
-  if (role === 'student') {
-    api('/api/flights/sessions/active/' + currentUser.id).then(function(res) {
-      if (res.active) {
-        activeSessionId = res.session.id;
-        stopwatchStartTime = Date.now() - (res.session.elapsedSeconds * 1000);
-        startStopwatchDisplay();
-        document.getElementById('startFlightBtn').disabled = true;
-        document.getElementById('stopFlightBtn').disabled = false;
-        document.getElementById('activeSession').textContent = 'Resumed flight #' + activeSessionId;
-      }
-    }).catch(function() {});
-  }
+  // ---------- RESUME ANY ACTIVE FLIGHT ----------
+  // Works for admin, instructor, and student
+  resumeActiveFlight();
 
   initBreadcrumbNav();
+}
+
+// ---------- RESUME ACTIVE FLIGHT (any role) ----------
+function resumeActiveFlight() {
+  var targetId;
+
+  if (currentUser.role === 'student') {
+    targetId = currentUser.id;
+  } else {
+    // Admin/instructor — check the student ID field if it has a value
+    var input = document.getElementById('flightStudentId');
+    if (input && input.value) {
+      targetId = parseInt(input.value);
+    }
+  }
+
+  if (!targetId) return;
+
+  api('/api/flights/sessions/active/' + targetId).then(function(res) {
+    if (res.active) {
+      activeSessionId = res.session.id;
+      stopwatchStartTime = Date.now() - (res.session.elapsedSeconds * 1000);
+      startStopwatchDisplay();
+      document.getElementById('startFlightBtn').disabled = true;
+      document.getElementById('stopFlightBtn').disabled = false;
+      document.getElementById('activeSession').textContent = 'Resumed flight #' + activeSessionId + ' for student ' + targetId;
+      document.getElementById('stopwatchDisplay').classList.add('running');
+    }
+  }).catch(function() {});
 }
 
 // ---------- UTC CLOCK ----------
@@ -356,6 +376,7 @@ function startFlight() {
     document.getElementById('startFlightBtn').disabled = true;
     document.getElementById('stopFlightBtn').disabled = false;
     document.getElementById('activeSession').textContent = 'Active session #' + activeSessionId;
+    document.getElementById('stopwatchDisplay').classList.add('running');
     showMessage('Flight started', 'success');
   }).catch(function(err) {
     showMessage(err.message, 'error');
@@ -363,27 +384,53 @@ function startFlight() {
 }
 
 function startStopwatchDisplay() {
-  clearInterval(stopwatchInterval);
-  stopwatchInterval = setInterval(function() {
+  if (stopwatchInterval) clearInterval(stopwatchInterval);
+  function tick() {
+    if (!stopwatchStartTime) return;
     var elapsed = Math.floor((Date.now() - stopwatchStartTime) / 1000);
     var h = ('0' + Math.floor(elapsed / 3600)).slice(-2);
     var m = ('0' + Math.floor((elapsed % 3600) / 60)).slice(-2);
     var s = ('0' + (elapsed % 60)).slice(-2);
-    document.getElementById('stopwatchDisplay').textContent = h + ':' + m + ':' + s;
-  }, 1000);
+    var el = document.getElementById('stopwatchDisplay');
+    if (el) el.textContent = h + ':' + m + ':' + s;
+  }
+  tick();
+  stopwatchInterval = setInterval(tick, 1000);
 }
 
 function stopFlight() {
-  if (!activeSessionId) return;
+  if (!activeSessionId) {
+    // Fallback: try to find active session server-side
+    var input = document.getElementById('flightStudentId');
+    var targetId = currentUser.role === 'student' ? currentUser.id : (input ? parseInt(input.value) : null);
+    if (!targetId) return showMessage('No active flight to stop', 'error');
+
+    api('/api/flights/sessions/active/' + targetId).then(function(res) {
+      if (!res.active) {
+        return showMessage('No active flight found for student ' + targetId, 'error');
+      }
+      activeSessionId = res.session.id;
+      doStopFlight();
+    }).catch(function(err) {
+      showMessage(err.message, 'error');
+    });
+    return;
+  }
+  doStopFlight();
+}
+
+function doStopFlight() {
   api('/api/flights/sessions/' + activeSessionId + '/stop', {
     method: 'POST',
     body: JSON.stringify({})
   }).then(function(result) {
-    clearInterval(stopwatchInterval);
+    if (stopwatchInterval) clearInterval(stopwatchInterval);
+    stopwatchInterval = null;
     document.getElementById('startFlightBtn').disabled = false;
     document.getElementById('stopFlightBtn').disabled = true;
     document.getElementById('activeSession').textContent = '';
     document.getElementById('stopwatchDisplay').textContent = '00:00:00';
+    document.getElementById('stopwatchDisplay').classList.remove('running');
     showMessage('Flight logged: ' + result.duration + ' hours', 'success');
     activeSessionId = null;
     stopwatchStartTime = null;
