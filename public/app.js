@@ -3,6 +3,7 @@ var currentUser = null;
 var stopwatchInterval = null;
 var activeSessionId = null;
 var stopwatchStartTime = null;
+var utcClockInterval = null;
 
 function api(path, options) {
   options = options || {};
@@ -29,6 +30,7 @@ function showMessage(text, type) {
   setTimeout(function() { el.textContent = ''; el.className = 'message'; }, 5000);
 }
 
+// ---------- LOGIN ----------
 function initLoginPage() {
   api('/api/auth/status').then(function(status) {
     if (status.needsSetup) {
@@ -82,12 +84,14 @@ function initLoginPage() {
   });
 }
 
+// ---------- DASHBOARD ----------
 function initDashboard() {
   api('/api/auth/me').then(function(data) {
     currentUser = data.user;
     document.getElementById('userName').textContent = currentUser.full_name;
     document.getElementById('userRole').textContent = currentUser.role;
     document.getElementById('userRole').className = 'badge badge-' + currentUser.role;
+    startUtcClock();
     setupDashboard();
   }).catch(function() {
     window.location.href = 'index.html';
@@ -184,6 +188,27 @@ function setupDashboard() {
   }
 }
 
+// ---------- UTC CLOCK ----------
+function startUtcClock() {
+  function tick() {
+    var now = new Date();
+    var h = ('0' + now.getUTCHours()).slice(-2);
+    var m = ('0' + now.getUTCMinutes()).slice(-2);
+    var s = ('0' + now.getUTCSeconds()).slice(-2);
+    var timeStr = h + ':' + m + ':' + s;
+
+    var clockEl = document.getElementById('utcClock');
+    if (clockEl) clockEl.textContent = timeStr + 'Z';
+
+    var rightEl = document.getElementById('clockRight');
+    if (rightEl) rightEl.textContent = 'UTC ' + timeStr + 'Z';
+  }
+  tick();
+  if (utcClockInterval) clearInterval(utcClockInterval);
+  utcClockInterval = setInterval(tick, 1000);
+}
+
+// ---------- LOADERS ----------
 function loadStats() {
   api('/api/admin/stats').then(function(stats) {
     document.getElementById('stats').innerHTML =
@@ -264,6 +289,7 @@ function deleteUser(id, username) {
   });
 }
 
+// ---------- FLIGHT ----------
 function startFlight() {
   var studentId = document.getElementById('flightStudentId').value;
   if (!studentId) return showMessage('Enter a student ID', 'error');
@@ -322,6 +348,7 @@ function stopFlight() {
   });
 }
 
+// ---------- MATERIALS ----------
 function loadMaterials() {
   api('/api/materials').then(function(data) {
     if (data.materials.length === 0) {
