@@ -9,6 +9,8 @@ router.use(authMiddleware.isAuthenticated);
 router.post('/sessions/start', function(req, res) {
   var studentId = req.body.studentId;
   var selfLog = req.body.selfLog === true;
+  var instructorId = req.body.instructorId ? parseInt(req.body.instructorId) : null;
+
   if (!studentId && !selfLog) {
     return res.status(400).json({ error: 'studentId required' });
   }
@@ -22,6 +24,7 @@ router.post('/sessions/start', function(req, res) {
     }
     targetUserId = req.session.userId;
     pilotRole = req.session.role;
+    instructorId = null;
   } else {
     targetUserId = parseInt(studentId);
     if (req.session.role === 'student' && targetUserId !== req.session.userId) {
@@ -30,6 +33,15 @@ router.post('/sessions/start', function(req, res) {
     var student = database.db.prepare("SELECT * FROM users WHERE id = ? AND role = 'student' AND is_active = 1").get(targetUserId);
     if (!student) return res.status(404).json({ error: 'Student not found' });
     pilotRole = 'student';
+
+    if (instructorId) {
+      var instructor = database.db.prepare("SELECT * FROM users WHERE id = ? AND role = 'instructor' AND is_active = 1").get(instructorId);
+      if (!instructor) {
+        return res.status(400).json({ error: 'Selected instructor not found' });
+      }
+    } else if (req.session.role === 'instructor') {
+      instructorId = req.session.userId;
+    }
   }
 
   var active = database.db.prepare("SELECT * FROM flight_sessions WHERE student_id = ? AND status = 'active'").get(targetUserId);
@@ -39,9 +51,6 @@ router.post('/sessions/start', function(req, res) {
       sessionId: active.id
     });
   }
-
-  var instructorId = req.session.role === 'instructor' ? req.session.userId : null;
-  if (selfLog) instructorId = null;
 
   var result = database.db.prepare(
     "INSERT INTO flight_sessions (student_id, instructor_id, aircraft, start_time, flight_type, notes, status, pilot_role) VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?, 'active', ?)"
@@ -128,7 +137,7 @@ router.get('/sessions/active/:studentId', function(req, res) {
   res.json({ active: true, session: session });
 });
 
-// MY FLIGHT LOG — any user, own history
+// MY FLIGHT LOG
 router.get('/sessions/my', function(req, res) {
   var sessions = database.db.prepare(
     "SELECT fs.*, i.full_name AS instructor_name FROM flight_sessions fs LEFT JOIN users i ON fs.instructor_id = i.id WHERE fs.student_id = ? AND fs.status = 'completed' ORDER BY fs.start_time DESC"
