@@ -5,6 +5,8 @@ var activeSessionId = null;
 var activeSessionStudentId = null;
 var stopwatchStartTime = null;
 var utcClockInterval = null;
+var allLogsCache = [];
+var socket = null;
 
 function api(path, options) {
   options = options || {};
@@ -31,6 +33,21 @@ function showMessage(text, type) {
   setTimeout(function() { el.textContent = ''; el.className = 'message'; }, 5000);
 }
 
+function toast(text, type) {
+  type = type || 'info';
+  var c = document.getElementById('toastContainer');
+  if (!c) return;
+  var el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = text;
+  c.appendChild(el);
+  setTimeout(function() { el.classList.add('show'); }, 10);
+  setTimeout(function() {
+    el.classList.remove('show');
+    setTimeout(function() { if (el.parentNode) c.removeChild(el); }, 300);
+  }, 4000);
+}
+
 function fmtDate(str) {
   if (!str) return '—';
   var d = new Date(String(str).replace(' ', 'T') + 'Z');
@@ -38,8 +55,42 @@ function fmtDate(str) {
   return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
 }
 
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ---------- THEME ----------
+function initTheme() {
+  var saved = localStorage.getItem('theme') || 'dark';
+  document.body.setAttribute('data-theme', saved);
+  updateThemeIcon(saved);
+
+  var btn = document.getElementById('themeToggle');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      var cur = document.body.getAttribute('data-theme') || 'dark';
+      var next = cur === 'dark' ? 'light' : 'dark';
+      document.body.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateThemeIcon(next);
+    });
+  }
+}
+
+function updateThemeIcon(theme) {
+  var btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = theme === 'dark' ? '🌙' : '☀️';
+}
+
 // ---------- LOGIN ----------
 function initLoginPage() {
+  initTheme();
   api('/api/auth/status').then(function(status) {
     if (status.needsSetup) {
       document.getElementById('loginForm').style.display = 'none';
@@ -59,9 +110,7 @@ function initLoginPage() {
       })
     }).then(function() {
       window.location.href = 'dashboard.html';
-    }).catch(function(err) {
-      showMessage(err.message, 'error');
-    });
+    }).catch(function(err) { showMessage(err.message, 'error'); });
   });
 
   document.getElementById('setupForm').addEventListener('submit', function(e) {
@@ -71,8 +120,7 @@ function initLoginPage() {
     api('/api/auth/setup', {
       method: 'POST',
       body: JSON.stringify({
-        username: username,
-        password: password,
+        username: username, password: password,
         fullName: document.getElementById('setupFullName').value,
         email: document.getElementById('setupEmail').value
       })
@@ -82,18 +130,15 @@ function initLoginPage() {
         api('/api/auth/login', {
           method: 'POST',
           body: JSON.stringify({ username: username, password: password })
-        }).then(function() {
-          window.location.href = 'dashboard.html';
-        });
+        }).then(function() { window.location.href = 'dashboard.html'; });
       }, 800);
-    }).catch(function(err) {
-      showMessage(err.message, 'error');
-    });
+    }).catch(function(err) { showMessage(err.message, 'error'); });
   });
 }
 
 // ---------- DASHBOARD ----------
 function initDashboard() {
+  initTheme();
   api('/api/auth/me').then(function(data) {
     currentUser = data.user;
     document.getElementById('userName').textContent = currentUser.full_name;
@@ -101,9 +146,45 @@ function initDashboard() {
     document.getElementById('userRole').className = 'badge badge-' + currentUser.role;
     startUtcClock();
     setupDashboard();
+    initSocket();
   }).catch(function() {
     window.location.href = 'index.html';
   });
+}
+
+// ---------- SOCKET ----------
+function initSocket() {
+  if (typeof io === 'undefined') return;
+  try {
+    socket = io();
+    socket.on('online-users', function(users) {
+      var card = document.getElementById('onlineUsersCard');
+      if (!card || card.style.display === 'none') return;
+      var count = document.getElementById('onlineCount');
+      if (count) count.textContent = '(' + users.length + ')';
+      var list = document.getElementById('onlineUsers');
+      if (!list) return;
+      if (users.length === 0) {
+        list.innerHTML = '<p class="muted">Nobody else online.</p>';
+      } else {
+        var html = '';
+        for (var i = 0; i < users.length; i++) {
+          var u = users[i];
+          html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span></div>';
+        }
+        list.innerHTML = html;
+      }
+    });
+    socket.on('flight-event', function(evt) {
+      if (!evt) return;
+      if (evt.type === 'start') {
+        toast('🛫 ' + evt.pilotName + ' started a flight', 'info');
+      } else if (evt.type === 'stop') {
+        toast('🛬 ' + evt.pilotName + ' landed (' + evt.duration + ' h)', 'success');
+      }
+      if (currentUser && currentUser.role === 'admin') loadAllLogs();
+    });
+  } catch (e) { /* ignore */ }
 }
 
 function setupDashboard() {
@@ -113,14 +194,10 @@ function setupDashboard() {
   var canManage = isAdmin || isInstructor;
 
   var adminEls = document.querySelectorAll('.admin-only');
-  for (var i = 0; i < adminEls.length; i++) {
-    adminEls[i].style.display = isAdmin ? 'block' : 'none';
-  }
+  for (var i = 0; i < adminEls.length; i++) adminEls[i].style.display = isAdmin ? 'block' : 'none';
 
   var instEls = document.querySelectorAll('.instructor-only');
-  for (var j = 0; j < instEls.length; j++) {
-    instEls[j].style.display = canManage ? 'block' : 'none';
-  }
+  for (var j = 0; j < instEls.length; j++) instEls[j].style.display = canManage ? 'block' : 'none';
 
   var onlineCard = document.getElementById('onlineUsersCard');
   if (onlineCard) onlineCard.style.display = isAdmin ? 'block' : 'none';
@@ -167,9 +244,7 @@ function setupDashboard() {
   document.getElementById('logoutBtn').addEventListener('click', function() {
     api('/api/auth/logout', { method: 'POST' }).then(function() {
       window.location.href = 'index.html';
-    }).catch(function() {
-      window.location.href = 'index.html';
-    });
+    }).catch(function() { window.location.href = 'index.html'; });
   });
 
   if (canManage) {
@@ -190,9 +265,7 @@ function setupDashboard() {
         e.target.reset();
         loadUsers();
         loadInstructors();
-      }).catch(function(err) {
-        showMessage(err.message, 'error');
-      });
+      }).catch(function(err) { showMessage(err.message, 'error'); });
     });
     document.getElementById('refreshUsers').addEventListener('click', loadUsers);
   }
@@ -201,9 +274,22 @@ function setupDashboard() {
   document.getElementById('stopFlightBtn').addEventListener('click', stopFlight);
   document.getElementById('refreshMaterials').addEventListener('click', loadMaterials);
   document.getElementById('refreshMyLog').addEventListener('click', loadMyLog);
+  document.getElementById('printLogbook').addEventListener('click', printLogbook);
 
   if (isAdmin) {
     document.getElementById('refreshAllLogs').addEventListener('click', loadAllLogs);
+    document.getElementById('exportCsv').addEventListener('click', exportCsv);
+    document.getElementById('filterPilot').addEventListener('input', applyFilters);
+    document.getElementById('filterInstructor').addEventListener('input', applyFilters);
+    document.getElementById('filterFrom').addEventListener('change', applyFilters);
+    document.getElementById('filterTo').addEventListener('change', applyFilters);
+    document.getElementById('clearFilters').addEventListener('click', function() {
+      document.getElementById('filterPilot').value = '';
+      document.getElementById('filterInstructor').value = '';
+      document.getElementById('filterFrom').value = '';
+      document.getElementById('filterTo').value = '';
+      applyFilters();
+    });
   }
 
   if (canManage) {
@@ -219,9 +305,7 @@ function setupDashboard() {
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
-
   resumeActiveFlight();
-
   initBreadcrumbNav();
 }
 
@@ -233,18 +317,13 @@ function resumeActiveFlight() {
     }).catch(function() {});
     return;
   }
-
   api('/api/flights/sessions/active/' + currentUser.id).then(function(res) {
-    if (res.active) {
-      attachActiveSession(res.session);
-      return;
-    }
+    if (res.active) { attachActiveSession(res.session); return; }
     api('/api/flights/sessions/active/all').then(function(data) {
       if (data.sessions && data.sessions.length > 0) {
         var latest = data.sessions[0];
         var start = new Date(latest.start_time);
-        var now = new Date();
-        latest.elapsedSeconds = Math.floor((now - start) / 1000);
+        latest.elapsedSeconds = Math.floor((new Date() - start) / 1000);
         attachActiveSession(latest);
       }
     }).catch(function() {});
@@ -255,25 +334,22 @@ function attachActiveSession(session) {
   activeSessionId = session.id;
   activeSessionStudentId = session.student_id;
   stopwatchStartTime = Date.now() - (session.elapsedSeconds * 1000);
-
   var input = document.getElementById('flightStudentId');
   if (input && !input.disabled) input.value = session.student_id;
-
-  // Pre-select instructor if this session has one
   if (session.instructor_id) {
     var instSelect = document.getElementById('flightInstructorId');
     if (instSelect) instSelect.value = session.instructor_id;
   }
-
+  if (session.notes) {
+    var notesEl = document.getElementById('flightNotes');
+    if (notesEl) notesEl.value = session.notes;
+  }
   startStopwatchDisplay();
   document.getElementById('startFlightBtn').disabled = true;
   document.getElementById('stopFlightBtn').disabled = false;
   document.getElementById('stopwatchDisplay').classList.add('running');
-
   var info = document.getElementById('activeSession');
-  if (info) {
-    info.textContent = 'Active flight #' + session.id + ' — ' + (session.student_name || session.student_id);
-  }
+  if (info) info.textContent = 'Active flight #' + session.id + ' — ' + (session.student_name || session.student_id);
 }
 
 // ---------- CLOCK ----------
@@ -283,11 +359,11 @@ function startUtcClock() {
     var h = ('0' + now.getUTCHours()).slice(-2);
     var m = ('0' + now.getUTCMinutes()).slice(-2);
     var s = ('0' + now.getUTCSeconds()).slice(-2);
-    var timeStr = h + ':' + m + ':' + s;
-    var clockEl = document.getElementById('utcClock');
-    if (clockEl) clockEl.textContent = timeStr + 'Z';
-    var rightEl = document.getElementById('clockRight');
-    if (rightEl) rightEl.textContent = 'UTC ' + timeStr + 'Z';
+    var t = h + ':' + m + ':' + s;
+    var ce = document.getElementById('utcClock');
+    if (ce) ce.textContent = t + 'Z';
+    var re = document.getElementById('clockRight');
+    if (re) re.textContent = 'UTC ' + t + 'Z';
   }
   tick();
   if (utcClockInterval) clearInterval(utcClockInterval);
@@ -298,14 +374,12 @@ function startUtcClock() {
 function initBreadcrumbNav() {
   var links = document.querySelectorAll('.breadcrumb-item[data-target]');
   if (links.length === 0) return;
-
   function setActive(id) {
     for (var j = 0; j < links.length; j++) {
       if (links[j].getAttribute('data-target') === id) links[j].classList.add('active');
       else links[j].classList.remove('active');
     }
   }
-
   for (var i = 0; i < links.length; i++) {
     links[i].addEventListener('click', function(e) {
       e.preventDefault();
@@ -315,7 +389,6 @@ function initBreadcrumbNav() {
       setActive(tid);
     });
   }
-
   function upd() {
     var sp = window.scrollY + 160;
     var activeId = null;
@@ -326,7 +399,6 @@ function initBreadcrumbNav() {
     }
     if (activeId) setActive(activeId);
   }
-
   window.addEventListener('scroll', upd, { passive: true });
   upd();
 }
@@ -352,7 +424,7 @@ function loadOnlineUsers() {
       var html = '';
       for (var i = 0; i < data.users.length; i++) {
         var u = data.users[i];
-        html += '<div class="list-item"><strong>' + u.full_name + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span></div>';
+        html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span></div>';
       }
       document.getElementById('onlineUsers').innerHTML = html;
     }
@@ -370,7 +442,8 @@ function loadUsers() {
                (isAdmin ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
-      html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + u.full_name + '</td>' +
+      var nameLink = '<a href="#" onclick="showProgress(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, "\\'") + '\'); return false;">' + escapeHtml(u.full_name) + '</a>';
+      html += '<tr><td>' + u.id + '</td><td>' + escapeHtml(u.username) + '</td><td>' + nameLink + '</td>' +
               '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
               '<td>' + (u.total_hours || 0).toFixed(1) + '</td>';
       if (isAdmin) {
@@ -387,19 +460,16 @@ function loadUsers() {
     html += '</tbody></table>';
     document.getElementById('usersList').innerHTML = html;
   }).catch(function(err) {
-    document.getElementById('usersList').innerHTML = '<p class="muted">' + err.message + '</p>';
+    document.getElementById('usersList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
-// ---------- INSTRUCTORS DROPDOWN ----------
 function loadInstructors() {
   api('/api/admin/instructors').then(function(data) {
     var select = document.getElementById('flightInstructorId');
     if (!select) return;
-
     var current = select.value;
     select.innerHTML = '<option value="">— No instructor —</option>';
-
     for (var i = 0; i < data.instructors.length; i++) {
       var inst = data.instructors[i];
       var opt = document.createElement('option');
@@ -407,9 +477,8 @@ function loadInstructors() {
       opt.textContent = inst.full_name + ' (#' + inst.id + ')';
       select.appendChild(opt);
     }
-
     if (current) select.value = current;
-  }).catch(function() { /* silent */ });
+  }).catch(function() {});
 }
 
 function deleteUser(id, username) {
@@ -422,6 +491,61 @@ function deleteUser(id, username) {
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
 
+// ---------- PROGRESS MODAL ----------
+function showProgress(userId, userName) {
+  document.getElementById('progressTitle').textContent = 'Progress — ' + (userName || 'Student');
+  document.getElementById('progressBody').innerHTML = '<p class="muted">Loading...</p>';
+  document.getElementById('progressModal').style.display = 'flex';
+
+  api('/api/flights/sessions/student/' + userId).then(function(data) {
+    var sessions = data.sessions || [];
+    var totalHours = 0;
+    for (var i = 0; i < sessions.length; i++) totalHours += (sessions[i].duration_hours || 0);
+
+    var milestones = [
+      { name: 'Student Pilot', hours: 10 },
+      { name: 'Private Pilot (PPL)', hours: 40 },
+      { name: 'Instrument Rating (IR)', hours: 50 },
+      { name: 'Commercial Pilot (CPL)', hours: 250 },
+      { name: 'Airline Transport Pilot (ATP)', hours: 1500 }
+    ];
+
+    var html = '<div class="progress-summary"><div class="stat-box"><div class="stat-num">' + totalHours.toFixed(1) + '</div><div class="stat-label">Total Hours</div></div>' +
+               '<div class="stat-box"><div class="stat-num">' + sessions.length + '</div><div class="stat-label">Total Flights</div></div></div>';
+
+    html += '<h4 style="margin:20px 0 10px; color:#38bdf8;">Certificate Progress</h4>';
+    for (var m = 0; m < milestones.length; m++) {
+      var ms = milestones[m];
+      var pct = Math.min(100, (totalHours / ms.hours) * 100);
+      html += '<div class="milestone">' +
+        '<div class="milestone-head"><span>' + ms.name + '</span><span>' + totalHours.toFixed(1) + ' / ' + ms.hours + ' h</span></div>' +
+        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+        '</div>';
+    }
+
+    if (sessions.length > 0) {
+      html += '<h4 style="margin:20px 0 10px; color:#38bdf8;">Recent Flights</h4>';
+      html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Duration</th></tr></thead><tbody>';
+      var recent = sessions.slice(0, 10);
+      for (var r = 0; r < recent.length; r++) {
+        var s = recent[r];
+        html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td><td>' + (s.duration_hours || 0).toFixed(2) + ' h</td></tr>';
+      }
+      html += '</tbody></table>';
+    } else {
+      html += '<p class="muted" style="margin-top:20px;">No flights logged yet.</p>';
+    }
+
+    document.getElementById('progressBody').innerHTML = html;
+  }).catch(function(err) {
+    document.getElementById('progressBody').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function closeProgressModal() {
+  document.getElementById('progressModal').style.display = 'none';
+}
+
 // ---------- MY FLIGHT LOG ----------
 function loadMyLog() {
   api('/api/flights/sessions/my').then(function(data) {
@@ -429,75 +553,234 @@ function loadMyLog() {
       document.getElementById('myLogList').innerHTML = '<p class="muted">No flights logged yet.</p>';
       return;
     }
-
     var totalHours = 0;
-    for (var t = 0; t < data.sessions.length; t++) {
-      totalHours += (data.sessions[t].duration_hours || 0);
-    }
+    for (var t = 0; t < data.sessions.length; t++) totalHours += (data.sessions[t].duration_hours || 0);
 
     var html = '<p class="muted" style="margin-bottom:10px;">Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + data.sessions.length + ' flights</p>';
-    html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Duration</th></tr></thead><tbody>';
-
+    html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration</th></tr></thead><tbody>';
     for (var i = 0; i < data.sessions.length; i++) {
       var s = data.sessions[i];
       var instName = s.instructor_name || ((s.pilot_role === 'admin' || s.pilot_role === 'instructor') ? 'Self' : '—');
       html += '<tr>' +
         '<td>' + fmtDate(s.start_time) + '</td>' +
-        '<td>' + (s.aircraft || '—') + '</td>' +
-        '<td>' + (s.flight_type || '—') + '</td>' +
-        '<td>' + instName + '</td>' +
+        '<td>' + escapeHtml(s.aircraft || '—') + '</td>' +
+        '<td>' + escapeHtml(s.flight_type || '—') + '</td>' +
+        '<td>' + escapeHtml(instName) + '</td>' +
+        '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
         '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
       '</tr>';
     }
     html += '</tbody></table>';
     document.getElementById('myLogList').innerHTML = html;
   }).catch(function(err) {
-    document.getElementById('myLogList').innerHTML = '<p class="muted">' + err.message + '</p>';
+    document.getElementById('myLogList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
 // ---------- ALL FLIGHT LOGS ----------
 function loadAllLogs() {
   api('/api/flights/sessions/all').then(function(data) {
-    if (!data.sessions || data.sessions.length === 0) {
-      document.getElementById('allLogsList').innerHTML = '<p class="muted">No flight logs yet.</p>';
-      return;
-    }
+    allLogsCache = data.sessions || [];
+    renderAllLogs();
+  }).catch(function(err) {
+    document.getElementById('allLogsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
 
+function applyFilters() {
+  renderAllLogs();
+}
+
+function renderAllLogs() {
+  var filterPilot = (document.getElementById('filterPilot').value || '').toLowerCase();
+  var filterInstructor = (document.getElementById('filterInstructor').value || '').toLowerCase();
+  var filterFrom = document.getElementById('filterFrom').value;
+  var filterTo = document.getElementById('filterTo').value;
+
+  var filtered = [];
+  for (var i = 0; i < allLogsCache.length; i++) {
+    var s = allLogsCache[i];
+    var pilot = (s.pilot_name || '').toLowerCase();
+    var inst = (s.instructor_name || '').toLowerCase();
+    var dateStr = s.start_time ? String(s.start_time).slice(0, 10) : '';
+
+    if (filterPilot && pilot.indexOf(filterPilot) === -1) continue;
+    if (filterInstructor && inst.indexOf(filterInstructor) === -1) continue;
+    if (filterFrom && dateStr < filterFrom) continue;
+    if (filterTo && dateStr > filterTo) continue;
+
+    filtered.push(s);
+  }
+
+  if (filtered.length === 0) {
+    document.getElementById('allLogsList').innerHTML = '<p class="muted">No flights match your filter.</p>';
+    return;
+  }
+
+  var totalHours = 0;
+  for (var t = 0; t < filtered.length; t++) totalHours += (filtered[t].duration_hours || 0);
+
+  var html = '<p class="muted" style="margin-bottom:10px;">Showing <strong style="color:#38bdf8;">' + filtered.length + '</strong> flights · ' + totalHours.toFixed(2) + ' hours</p>';
+  html += '<table class="table"><thead><tr><th>Date</th><th>Pilot</th><th>Role</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration</th><th>Actions</th></tr></thead><tbody>';
+
+  for (var j = 0; j < filtered.length; j++) {
+    var s = filtered[j];
+    var role = s.pilot_role || s.pilot_role_actual || 'student';
+    var instName = s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : '—');
+    html += '<tr>' +
+      '<td>' + fmtDate(s.start_time) + '</td>' +
+      '<td>' + escapeHtml(s.pilot_name || '—') + '</td>' +
+      '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
+      '<td>' + escapeHtml(s.aircraft || '—') + '</td>' +
+      '<td>' + escapeHtml(s.flight_type || '—') + '</td>' +
+      '<td>' + escapeHtml(instName) + '</td>' +
+      '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
+      '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
+      '<td>' +
+        '<button class="btn-secondary btn-small" onclick="editSession(' + s.id + ')">Edit</button> ' +
+        '<button class="btn-danger btn-small" onclick="deleteSession(' + s.id + ')">Delete</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('allLogsList').innerHTML = html;
+}
+
+// ---------- EDIT SESSION ----------
+function editSession(id) {
+  var s = null;
+  for (var i = 0; i < allLogsCache.length; i++) {
+    if (allLogsCache[i].id === id) { s = allLogsCache[i]; break; }
+  }
+  if (!s) return;
+
+  document.getElementById('editSessionId').value = s.id;
+  document.getElementById('editDateTime').value = fmtDate(s.start_time);
+  document.getElementById('editAircraft').value = s.aircraft || '';
+  document.getElementById('editType').value = s.flight_type || '';
+  document.getElementById('editDuration').value = s.duration_hours || 0;
+  document.getElementById('editNotes').value = s.notes || '';
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function saveEditSession() {
+  var id = document.getElementById('editSessionId').value;
+  var body = {
+    aircraft: document.getElementById('editAircraft').value,
+    flight_type: document.getElementById('editType').value,
+    duration_hours: parseFloat(document.getElementById('editDuration').value) || 0,
+    notes: document.getElementById('editNotes').value
+  };
+  api('/api/flights/sessions/' + id, {
+    method: 'PUT',
+    body: JSON.stringify(body)
+  }).then(function() {
+    showMessage('Session updated', 'success');
+    closeEditModal();
+    loadAllLogs();
+    loadMyLog();
+    loadStats();
+    loadUsers();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this flight session permanently?\n\nThis will subtract its duration from the pilot\'s total hours.')) return;
+  api('/api/flights/sessions/' + id, { method: 'DELETE' }).then(function() {
+    showMessage('Session deleted', 'success');
+    loadAllLogs();
+    loadMyLog();
+    loadStats();
+    loadUsers();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+// ---------- CSV EXPORT ----------
+function exportCsv() {
+  var rows = [['Date', 'Pilot', 'Role', 'Aircraft', 'Flight Type', 'Instructor', 'Notes', 'Duration (h)']];
+  for (var i = 0; i < allLogsCache.length; i++) {
+    var s = allLogsCache[i];
+    var role = s.pilot_role || s.pilot_role_actual || 'student';
+    rows.push([
+      fmtDate(s.start_time),
+      s.pilot_name || '',
+      role,
+      s.aircraft || '',
+      s.flight_type || '',
+      s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : ''),
+      s.notes || '',
+      (s.duration_hours || 0).toFixed(2)
+    ]);
+  }
+  downloadCsv(rows, 'all-flight-logs-' + new Date().toISOString().slice(0, 10) + '.csv');
+}
+
+function downloadCsv(rows, filename) {
+  var csv = '';
+  for (var i = 0; i < rows.length; i++) {
+    var row = [];
+    for (var j = 0; j < rows[i].length; j++) {
+      var cell = String(rows[i][j] == null ? '' : rows[i][j]);
+      if (cell.indexOf(',') !== -1 || cell.indexOf('"') !== -1 || cell.indexOf('\n') !== -1) {
+        cell = '"' + cell.replace(/"/g, '""') + '"';
+      }
+      row.push(cell);
+    }
+    csv += row.join(',') + '\r\n';
+  }
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------- PRINT LOGBOOK ----------
+function printLogbook() {
+  api('/api/flights/sessions/my').then(function(data) {
+    var sessions = data.sessions || [];
     var totalHours = 0;
-    for (var t = 0; t < data.sessions.length; t++) {
-      totalHours += (data.sessions[t].duration_hours || 0);
-    }
+    for (var i = 0; i < sessions.length; i++) totalHours += (sessions[i].duration_hours || 0);
 
-    var html = '<p class="muted" style="margin-bottom:10px;">System Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + data.sessions.length + ' flights</p>';
-    html += '<table class="table"><thead><tr><th>Date</th><th>Pilot</th><th>Role</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Duration</th></tr></thead><tbody>';
-
-    for (var i = 0; i < data.sessions.length; i++) {
-      var s = data.sessions[i];
-      var role = s.pilot_role || s.pilot_role_actual || 'student';
-      var instName = s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : '—');
-      html += '<tr>' +
-        '<td>' + fmtDate(s.start_time) + '</td>' +
-        '<td>' + (s.pilot_name || '—') + '</td>' +
-        '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
-        '<td>' + (s.aircraft || '—') + '</td>' +
-        '<td>' + (s.flight_type || '—') + '</td>' +
-        '<td>' + instName + '</td>' +
-        '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
-      '</tr>';
+    var html = '<html><head><title>Logbook — ' + escapeHtml(currentUser.full_name) + '</title>';
+    html += '<style>';
+    html += 'body { font-family: Georgia, serif; padding: 40px; color: #000; }';
+    html += 'h1 { margin-bottom: 4px; } .sub { color: #666; margin-bottom: 24px; }';
+    html += 'table { width: 100%; border-collapse: collapse; margin-top: 20px; }';
+    html += 'th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; font-size: 12px; }';
+    html += 'th { background: #eee; }';
+    html += '.total { margin-top: 16px; font-weight: bold; font-size: 14px; }';
+    html += '@media print { body { padding: 0; } }';
+    html += '</style></head><body>';
+    html += '<h1>Pilot Logbook</h1>';
+    html += '<div class="sub">' + escapeHtml(currentUser.full_name) + ' · ' + new Date().toLocaleDateString() + '</div>';
+    html += '<table><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration (h)</th></tr></thead><tbody>';
+    for (var j = 0; j < sessions.length; j++) {
+      var s = sessions[j];
+      html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td><td>' + escapeHtml(s.flight_type || '—') + '</td><td>' + escapeHtml(s.instructor_name || '—') + '</td><td>' + escapeHtml(s.notes || '—') + '</td><td>' + (s.duration_hours || 0).toFixed(2) + '</td></tr>';
     }
     html += '</tbody></table>';
-    document.getElementById('allLogsList').innerHTML = html;
-  }).catch(function(err) {
-    document.getElementById('allLogsList').innerHTML = '<p class="muted">' + err.message + '</p>';
+    html += '<div class="total">Total Hours: ' + totalHours.toFixed(2) + '</div>';
+    html += '</body></html>';
+
+    var w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    setTimeout(function() { w.print(); }, 500);
   });
 }
 
 // ---------- FLIGHT ----------
 function startFlight() {
-  if (activeSessionId) {
-    return showMessage('A flight is already active — stop it first', 'error');
-  }
+  if (activeSessionId) return showMessage('A flight is already active — stop it first', 'error');
 
   var selfLogCheck = document.getElementById('selfLogCheck');
   var selfLog = selfLogCheck && selfLogCheck.checked;
@@ -509,7 +792,8 @@ function startFlight() {
 
   var body = {
     aircraft: document.getElementById('flightAircraft').value,
-    flightType: document.getElementById('flightType').value
+    flightType: document.getElementById('flightType').value,
+    notes: document.getElementById('flightNotes').value
   };
   if (selfLog) {
     body.selfLog = true;
@@ -528,8 +812,7 @@ function startFlight() {
     startStopwatchDisplay();
     document.getElementById('startFlightBtn').disabled = true;
     document.getElementById('stopFlightBtn').disabled = false;
-    document.getElementById('activeSession').textContent =
-      'Active session #' + activeSessionId + (selfLog ? ' (self-log)' : '');
+    document.getElementById('activeSession').textContent = 'Active session #' + activeSessionId + (selfLog ? ' (self-log)' : '');
     document.getElementById('stopwatchDisplay').classList.add('running');
     showMessage('Flight started', 'success');
   }).catch(function(err) {
@@ -579,9 +862,10 @@ function stopFlight() {
 }
 
 function doStopFlight() {
+  var notes = document.getElementById('flightNotes').value;
   api('/api/flights/sessions/' + activeSessionId + '/stop', {
     method: 'POST',
-    body: JSON.stringify({})
+    body: JSON.stringify({ notes: notes })
   }).then(function(result) {
     if (stopwatchInterval) clearInterval(stopwatchInterval);
     stopwatchInterval = null;
@@ -590,6 +874,7 @@ function doStopFlight() {
     document.getElementById('activeSession').textContent = '';
     document.getElementById('stopwatchDisplay').textContent = '00:00:00';
     document.getElementById('stopwatchDisplay').classList.remove('running');
+    document.getElementById('flightNotes').value = '';
     showMessage('Flight logged: ' + result.duration + ' hours', 'success');
     activeSessionId = null;
     activeSessionStudentId = null;
@@ -600,9 +885,7 @@ function doStopFlight() {
     }
     loadMyLog();
     if (currentUser && currentUser.role === 'admin') loadAllLogs();
-  }).catch(function(err) {
-    showMessage(err.message, 'error');
-  });
+  }).catch(function(err) { showMessage(err.message, 'error'); });
 }
 
 // ---------- MATERIALS ----------
@@ -615,11 +898,11 @@ function loadMaterials() {
     var html = '';
     for (var i = 0; i < data.materials.length; i++) {
       var m = data.materials[i];
-      html += '<div class="list-item"><strong>' + m.title + '</strong> <span class="badge">' + (m.category || 'General') + '</span> <a href="/api/materials/' + m.id + '/download" target="_blank">Download</a></div>';
+      html += '<div class="list-item"><strong>' + escapeHtml(m.title) + '</strong> <span class="badge">' + escapeHtml(m.category || 'General') + '</span> <a href="/api/materials/' + m.id + '/download" target="_blank">Download</a></div>';
     }
     document.getElementById('materialsList').innerHTML = html;
   }).catch(function(err) {
-    document.getElementById('materialsList').innerHTML = '<p class="muted">' + err.message + '</p>';
+    document.getElementById('materialsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
@@ -637,7 +920,5 @@ function uploadMaterial(e) {
     showMessage('Material uploaded', 'success');
     e.target.reset();
     loadMaterials();
-  }).catch(function(err) {
-    showMessage(err.message, 'error');
-  });
+  }).catch(function(err) { showMessage(err.message, 'error'); });
 }
