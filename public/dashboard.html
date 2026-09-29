@@ -23,13 +23,40 @@
         <span class="brand-title">San Andreas Aviation</span>
         <span class="brand-subtitle">Flight Tracker</span>
       </div>
+      <span class="n-number">N172SA</span>
     </div>
+
+    <div class="topbar-center">
+      <div class="status-lights" title="COM / NAV / XPDR">
+        <span class="light light-com" title="COM"></span>
+        <span class="light light-nav" title="NAV"></span>
+        <span class="light light-xpdr" title="XPDR"></span>
+      </div>
+
+      <div class="wind-indicator" title="Wind: 270° at 8 kts">
+        <span class="wind-arrow">↑</span>
+        <span class="wind-label">270° / 08</span>
+      </div>
+
+      <div class="utc-clock" id="utcClock">--:--:--Z</div>
+    </div>
+
     <div class="user-info">
       <span id="userName"></span>
       <span id="userRole" class="badge"></span>
       <button id="logoutBtn" class="btn-secondary">Log out</button>
     </div>
   </header>
+
+  <!-- Breadcrumb strip -->
+  <div class="breadcrumb-strip">
+    <span class="breadcrumb-item active">◈ Dashboard</span>
+    <span class="breadcrumb-sep">·</span>
+    <span class="breadcrumb-item">Flights</span>
+    <span class="breadcrumb-sep">·</span>
+    <span class="breadcrumb-item">Materials</span>
+    <span class="breadcrumb-right" id="clockRight">UTC --:--:--</span>
+  </div>
 
   <main class="container">
     <div id="message" class="message"></div>
