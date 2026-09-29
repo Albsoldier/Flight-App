@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAAA Dashboard</title>
+  <link rel="icon" type="image/png" href="saaa-logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="saaa-logo.png" alt="SAAA" class="brand-logo" onerror="this.style.display='none'">
+      <div class="brand-text">
+        <span class="brand-title">San Andreas Aviation</span>
+        <span class="brand-subtitle">Flight Tracker</span>
+      </div>
+    </div>
+    <div class="user-info">
+      <span id="userName"></span>
+      <span id="userRole" class="badge"></span>
+      <button id="logoutBtn" class="btn-secondary">Log out</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="message" class="message"></div>
+
+    <section class="card admin-only" style="display:none;">
+      <h2>Dashboard</h2>
+      <div id="stats" class="stats-grid"></div>
+    </section>
+
+    <section class="card" id="onlineUsersCard" style="display:none;">
+      <h2>Online Users <small id="onlineCount"></small></h2>
+      <div id="onlineUsers"></div>
+    </section>
+
+    <section class="card instructor-only" style="display:none;">
+      <h2>Create User</h2>
+      <form id="createUserForm">
+        <div class="field-row">
+          <div class="field"><label>Username</label><input type="text" id="newUsername" required></div>
+          <div class="field"><label>Password</label><input type="password" id="newPassword" required minlength="6"></div>
+          <div class="field">
+            <label>Role</label>
+            <select id="newRole">
+              <option value="student">Student</option>
+              <option value="instructor">Instructor</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Full Name</label><input type="text" id="newFullName" required></div>
+          <div class="field"><label>Email</label><input type="email" id="newEmail"></div>
+          <div class="field"><label>Phone</label><input type="text" id="newPhone"></div>
+        </div>
+        <button type="submit">Create User</button>
+      </form>
+    </section>
+
+    <section class="card instructor-only" style="display:none;">
+      <h2>Users</h2>
+      <button id="refreshUsers" class="btn-secondary">Refresh</button>
+      <div id="usersList"></div>
+    </section>
+
+    <section class="card">
+      <h2>Flight Stopwatch</h2>
+      <div class="field-row">
+        <div class="field"><label>Student ID</label><input type="number" id="flightStudentId" required></div>
+        <div class="field"><label>Aircraft</label><input type="text" id="flightAircraft" placeholder="N12345"></div>
+        <div class="field"><label>Flight Type</label><input type="text" id="flightType" placeholder="Training"></div>
+      </div>
+      <div id="stopwatchDisplay" class="stopwatch">00:00:00</div>
+      <div class="stopwatch-controls">
+        <button id="startFlightBtn">Start Flight</button>
+        <button id="stopFlightBtn" class="btn-danger" disabled>Stop Flight</button>
+      </div>
+      <p id="activeSession" class="muted"></p>
+    </section>
+
+    <section class="card">
+      <h2>Study Materials</h2>
+      <div id="uploadPanel" class="instructor-only" style="display:none;">
+        <form id="uploadForm">
+          <div class="field-row">
+            <div class="field"><label>Title</label><input type="text" id="matTitle" required></div>
+            <div class="field"><label>Category</label><input type="text" id="matCategory" placeholder="Ground School"></div>
+          </div>
+          <div class="field"><label>Description</label><input type="text" id="matDescription"></div>
+          <div class="field"><label>File</label><input type="file" id="matFile" required></div>
+          <button type="submit">Upload</button>
+        </form>
+      </div>
+      <button id="refreshMaterials" class="btn-secondary">Refresh</button>
+      <div id="materialsList"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>initDashboard();</script>
+</body>
+</html>
