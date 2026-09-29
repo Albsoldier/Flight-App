@@ -94,6 +94,33 @@ router.delete('/users/:id', authMiddleware.isInstructor, function(req, res) {
   res.json({ success: true });
 });
 
+// HARD DELETE user — admin only
+// Removes user + all their flight sessions permanently
+router.delete('/users/:id/hard', authMiddleware.isAdmin, function(req, res) {
+  const id = req.params.id;
+
+  if (parseInt(id) === req.session.userId) {
+    return res.status(400).json({ error: 'You cannot delete your own account' });
+  }
+
+  const user = database.db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (user.role === 'admin') {
+    return res.status(403).json({ error: 'Cannot delete other admin accounts' });
+  }
+
+  try {
+    database.db.prepare('DELETE FROM flight_sessions WHERE student_id = ?').run(id);
+    database.db.prepare('DELETE FROM active_sessions WHERE user_id = ?').run(id);
+    database.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    res.json({ success: true, message: 'User deleted permanently' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 router.get('/online-users', authMiddleware.isAdmin, function(req, res) {
   const users = authMiddleware.getOnlineUsers();
   res.json({ users: users, count: users.length });
