@@ -2,6 +2,10 @@
 
 html, body { min-height: 100vh; }
 
+html { scroll-behavior: smooth; }
+
+section[id^="section-"] { scroll-margin-top: 120px; }
+
 /* ============================================
    BASE
    ============================================ */
@@ -685,7 +689,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 
 /* ============================================
-   BREADCRUMB STRIP
+   BREADCRUMB STRIP — clickable
    ============================================ */
 .breadcrumb-strip {
   background: rgba(15, 23, 42, 0.85);
@@ -705,15 +709,43 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   z-index: 99;
 }
 
-.breadcrumb-item { transition: color 0.2s; }
+.breadcrumb-item {
+  color: #64748b;
+  text-decoration: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.breadcrumb-item:hover {
+  color: #94a3b8;
+  background: rgba(56, 189, 248, 0.08);
+}
 
 .breadcrumb-item.active {
   color: #38bdf8;
   font-weight: 700;
   text-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.1);
 }
 
-.breadcrumb-sep { color: rgba(100, 116, 139, 0.5); }
+.breadcrumb-item.active::before {
+  content: '';
+  position: absolute;
+  bottom: -9px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+}
+
+.breadcrumb-sep {
+  color: rgba(100, 116, 139, 0.5);
+  user-select: none;
+}
 
 .breadcrumb-right {
   margin-left: auto;
