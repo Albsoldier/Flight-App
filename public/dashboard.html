@@ -48,20 +48,20 @@
     </div>
   </header>
 
-  <!-- Breadcrumb strip -->
+  <!-- Breadcrumb strip — clickable -->
   <div class="breadcrumb-strip">
-    <span class="breadcrumb-item active">◈ Dashboard</span>
+    <a href="#section-dashboard" class="breadcrumb-item active" data-target="section-dashboard">◈ Dashboard</a>
     <span class="breadcrumb-sep">·</span>
-    <span class="breadcrumb-item">Flights</span>
+    <a href="#section-flights" class="breadcrumb-item" data-target="section-flights">Flights</a>
     <span class="breadcrumb-sep">·</span>
-    <span class="breadcrumb-item">Materials</span>
+    <a href="#section-materials" class="breadcrumb-item" data-target="section-materials">Materials</a>
     <span class="breadcrumb-right" id="clockRight">UTC --:--:--</span>
   </div>
 
   <main class="container">
     <div id="message" class="message"></div>
 
-    <section class="card admin-only" style="display:none;">
+    <section class="card admin-only" id="section-dashboard" style="display:none;">
       <h2>Dashboard</h2>
       <div id="stats" class="stats-grid"></div>
     </section>
@@ -115,7 +115,7 @@
       <div id="usersList"></div>
     </section>
 
-    <section class="card">
+    <section class="card" id="section-flights">
       <h2>Flight Stopwatch</h2>
       <div class="field-row">
         <div class="field">
@@ -139,7 +139,7 @@
       <p id="activeSession" class="muted"></p>
     </section>
 
-    <section class="card">
+    <section class="card" id="section-materials">
       <h2>Study Materials</h2>
       <div id="uploadPanel" class="instructor-only" style="display:none;">
         <form id="uploadForm">
