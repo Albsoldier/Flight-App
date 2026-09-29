@@ -969,4 +969,14 @@ body:has(.container:only-child) .subtitle { text-align: center; }
   accent-color: #38bdf8;
   width: 16px;
   height: 16px;
+/* ============================================
+   INSTRUCTOR DROPDOWN
+   ============================================ */
+#flightInstructorId {
+  cursor: pointer;
+}
+
+#flightInstructorId option {
+  background: #0f172a;
+  color: #e2e8f0;
 }
