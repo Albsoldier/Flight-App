@@ -146,12 +146,15 @@ function setupDashboard() {
     if (selfCheck) {
       selfCheck.addEventListener('change', function() {
         var studentInput = document.getElementById('flightStudentId');
+        var instructorField = document.getElementById('instructorSelectField');
         if (this.checked) {
           studentInput.value = currentUser.id;
           studentInput.disabled = true;
+          if (instructorField) instructorField.style.display = 'none';
         } else {
           studentInput.value = '';
           studentInput.disabled = false;
+          if (instructorField) instructorField.style.display = 'block';
         }
       });
     }
@@ -186,6 +189,7 @@ function setupDashboard() {
         showMessage('User created successfully', 'success');
         e.target.reset();
         loadUsers();
+        loadInstructors();
       }).catch(function(err) {
         showMessage(err.message, 'error');
       });
@@ -209,6 +213,7 @@ function setupDashboard() {
   if (canManage) loadStats();
   if (isAdmin) loadOnlineUsers();
   if (canManage) loadUsers();
+  loadInstructors();
   loadMaterials();
   loadMyLog();
   if (isAdmin) loadAllLogs();
@@ -253,6 +258,12 @@ function attachActiveSession(session) {
 
   var input = document.getElementById('flightStudentId');
   if (input && !input.disabled) input.value = session.student_id;
+
+  // Pre-select instructor if this session has one
+  if (session.instructor_id) {
+    var instSelect = document.getElementById('flightInstructorId');
+    if (instSelect) instSelect.value = session.instructor_id;
+  }
 
   startStopwatchDisplay();
   document.getElementById('startFlightBtn').disabled = true;
@@ -380,12 +391,34 @@ function loadUsers() {
   });
 }
 
+// ---------- INSTRUCTORS DROPDOWN ----------
+function loadInstructors() {
+  api('/api/admin/instructors').then(function(data) {
+    var select = document.getElementById('flightInstructorId');
+    if (!select) return;
+
+    var current = select.value;
+    select.innerHTML = '<option value="">— No instructor —</option>';
+
+    for (var i = 0; i < data.instructors.length; i++) {
+      var inst = data.instructors[i];
+      var opt = document.createElement('option');
+      opt.value = inst.id;
+      opt.textContent = inst.full_name + ' (#' + inst.id + ')';
+      select.appendChild(opt);
+    }
+
+    if (current) select.value = current;
+  }).catch(function() { /* silent */ });
+}
+
 function deleteUser(id, username) {
   if (!confirm('Delete user "' + username + '" permanently?\n\nThis will also delete all their flight sessions. This cannot be undone.')) return;
   api('/api/admin/users/' + id + '/hard', { method: 'DELETE' }).then(function() {
     showMessage('User "' + username + '" deleted', 'success');
     loadUsers();
     loadStats();
+    loadInstructors();
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
 
@@ -407,11 +440,12 @@ function loadMyLog() {
 
     for (var i = 0; i < data.sessions.length; i++) {
       var s = data.sessions[i];
+      var instName = s.instructor_name || ((s.pilot_role === 'admin' || s.pilot_role === 'instructor') ? 'Self' : '—');
       html += '<tr>' +
         '<td>' + fmtDate(s.start_time) + '</td>' +
         '<td>' + (s.aircraft || '—') + '</td>' +
         '<td>' + (s.flight_type || '—') + '</td>' +
-        '<td>' + (s.instructor_name || (s.pilot_role === 'admin' || s.pilot_role === 'instructor' ? 'Self' : '—')) + '</td>' +
+        '<td>' + instName + '</td>' +
         '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
       '</tr>';
     }
@@ -441,13 +475,14 @@ function loadAllLogs() {
     for (var i = 0; i < data.sessions.length; i++) {
       var s = data.sessions[i];
       var role = s.pilot_role || s.pilot_role_actual || 'student';
+      var instName = s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : '—');
       html += '<tr>' +
         '<td>' + fmtDate(s.start_time) + '</td>' +
         '<td>' + (s.pilot_name || '—') + '</td>' +
         '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
         '<td>' + (s.aircraft || '—') + '</td>' +
         '<td>' + (s.flight_type || '—') + '</td>' +
-        '<td>' + (s.instructor_name || '—') + '</td>' +
+        '<td>' + instName + '</td>' +
         '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
       '</tr>';
     }
@@ -469,6 +504,9 @@ function startFlight() {
   var studentId = document.getElementById('flightStudentId').value;
   if (!studentId && !selfLog) return showMessage('Enter a student ID', 'error');
 
+  var instructorSelect = document.getElementById('flightInstructorId');
+  var instructorId = instructorSelect && instructorSelect.value ? parseInt(instructorSelect.value) : null;
+
   var body = {
     aircraft: document.getElementById('flightAircraft').value,
     flightType: document.getElementById('flightType').value
@@ -477,6 +515,7 @@ function startFlight() {
     body.selfLog = true;
   } else {
     body.studentId = parseInt(studentId);
+    if (instructorId) body.instructorId = instructorId;
   }
 
   api('/api/flights/sessions/start', {
