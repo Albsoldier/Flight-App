@@ -26,14 +26,19 @@ const upload = multer({
 
 router.use(authMiddleware.isAuthenticated);
 
-router.get('/', function(req, res) {
-  const materials = database.db.prepare(
-    'SELECT sm.*, u.full_name AS uploader_name FROM study_materials sm LEFT JOIN users u ON sm.uploaded_by = u.id ORDER BY sm.created_at DESC'
-  ).all();
-  res.json({ materials: materials });
+router.get('/', async function(req, res) {
+  try {
+    const result = await database.db.execute(
+      'SELECT sm.*, u.full_name AS uploader_name FROM study_materials sm LEFT JOIN users u ON sm.uploaded_by = u.id ORDER BY sm.created_at DESC'
+    );
+    res.json({ materials: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-router.post('/', authMiddleware.isInstructor, upload.single('file'), function(req, res) {
+router.post('/', authMiddleware.isInstructor, upload.single('file'), async function(req, res) {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const title = req.body.title;
   if (!title) {
@@ -42,10 +47,11 @@ router.post('/', authMiddleware.isInstructor, upload.single('file'), function(re
   }
 
   try {
-    const result = database.db.prepare(
-      'INSERT INTO study_materials (title, description, file_name, file_path, file_size, mime_type, category, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-    ).run(title, req.body.description || null, req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, req.body.category || 'General', req.session.userId);
-    res.json({ success: true, materialId: result.lastInsertRowid });
+    const result = await database.db.execute({
+      sql: 'INSERT INTO study_materials (title, description, file_name, file_path, file_size, mime_type, category, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [title, req.body.description || null, req.file.originalname, req.file.filename, req.file.size, req.file.mimetype, req.body.category || 'General', req.session.userId]
+    });
+    res.json({ success: true, materialId: Number(result.lastInsertRowid) });
   } catch (err) {
     fs.unlinkSync(req.file.path);
     console.error(err);
@@ -53,22 +59,34 @@ router.post('/', authMiddleware.isInstructor, upload.single('file'), function(re
   }
 });
 
-router.get('/:id/download', function(req, res) {
-  const material = database.db.prepare('SELECT * FROM study_materials WHERE id = ?').get(req.params.id);
-  if (!material) return res.status(404).json({ error: 'Not found' });
-  const filePath = path.join(UPLOAD_DIR, material.file_path);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
-  res.download(filePath, material.file_name);
+router.get('/:id/download', async function(req, res) {
+  try {
+    const result = await database.db.execute({ sql: 'SELECT * FROM study_materials WHERE id = ?', args: [req.params.id] });
+    const material = result.rows[0];
+    if (!material) return res.status(404).json({ error: 'Not found' });
+    const filePath = path.join(UPLOAD_DIR, material.file_path);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing' });
+    res.download(filePath, material.file_name);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-router.delete('/:id', function(req, res) {
+router.delete('/:id', async function(req, res) {
   if (req.session.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  const material = database.db.prepare('SELECT * FROM study_materials WHERE id = ?').get(req.params.id);
-  if (!material) return res.status(404).json({ error: 'Not found' });
-  const filePath = path.join(UPLOAD_DIR, material.file_path);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  database.db.prepare('DELETE FROM study_materials WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+  try {
+    const result = await database.db.execute({ sql: 'SELECT * FROM study_materials WHERE id = ?', args: [req.params.id] });
+    const material = result.rows[0];
+    if (!material) return res.status(404).json({ error: 'Not found' });
+    const filePath = path.join(UPLOAD_DIR, material.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await database.db.execute({ sql: 'DELETE FROM study_materials WHERE id = ?', args: [req.params.id] });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 module.exports = router;
