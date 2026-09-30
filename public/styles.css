@@ -1280,4 +1280,64 @@ html[data-theme="light"] .badge-student,
 body.theme-light .badge-student {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25));
   color: #059669;
+/* ============================================
+   DISCORD LOGIN BUTTON
+   ============================================ */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(56, 189, 248, 0.2);
+}
+
+.discord-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, #5865F2 0%, #4752C4 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 0.1s, filter 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.35);
+}
+
+.discord-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 20px rgba(88, 101, 242, 0.5);
+  transform: translateY(-1px);
+}
+
+.discord-btn:active {
+  transform: translateY(1px);
+}
+
+.discord-icon {
+  font-size: 1.1rem;
+}
+
+body[data-theme="light"] .divider {
+  color: #94a3b8;
+}
+
+body[data-theme="light"] .divider::before,
+body[data-theme="light"] .divider::after {
+  background: rgba(100, 116, 139, 0.3);
 }
