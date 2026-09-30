@@ -6,13 +6,12 @@ const db = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN
 });
 
-// Initialize schema (runs once on startup)
 async function initSchema() {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
+      password TEXT,
       role TEXT NOT NULL CHECK(role IN ('admin', 'instructor', 'student')),
       full_name TEXT NOT NULL,
       email TEXT,
@@ -22,6 +21,10 @@ async function initSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_by INTEGER,
       is_active INTEGER DEFAULT 1,
+      discord_id TEXT UNIQUE,
+      discord_username TEXT,
+      discord_avatar TEXT,
+      auth_provider TEXT DEFAULT 'local',
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
   `);
@@ -81,6 +84,12 @@ async function initSchema() {
     )
   `);
 
+  // Safe migrations for existing installs
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_avatar TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
+
   console.log('✅ Database schema ready (Turso)');
 }
 
@@ -88,7 +97,6 @@ initSchema().catch(function(err) {
   console.error('❌ Schema init failed:', err);
 });
 
-// ---------- HELPERS (all async) ----------
 async function adminExists() {
   const result = await db.execute("SELECT COUNT(*) as count FROM users WHERE role = 'admin'");
   return result.rows[0].count > 0;
@@ -109,7 +117,7 @@ async function markSystemInitialized() {
 async function createFirstAdmin(username, password, fullName, email) {
   const hashed = bcrypt.hashSync(password, 10);
   const result = await db.execute({
-    sql: "INSERT INTO users (username, password, role, full_name, email) VALUES (?, ?, 'admin', ?, ?)",
+    sql: "INSERT INTO users (username, password, role, full_name, email, auth_provider) VALUES (?, ?, 'admin', ?, ?, 'local')",
     args: [username, hashed, fullName, email || null]
   });
   return Number(result.lastInsertRowid);
