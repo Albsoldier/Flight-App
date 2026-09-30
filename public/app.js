@@ -105,10 +105,38 @@ function updateThemeIcon(theme) {
 // ---------- LOGIN ----------
 function initLoginPage() {
   initTheme();
+
+  // Handle error messages from URL (redirected from Discord callback)
+  var params = new URLSearchParams(window.location.search);
+  var err = params.get('error');
+  if (err) {
+    var errorBanner = document.getElementById('errorBanner');
+    var messages = {
+      not_in_gtaW: 'You must be a member of the GTAW Discord server to sign in.',
+      missing_role: 'Your GTAW account does not have the required role.',
+      account_inactive: 'Your account is inactive. Contact an administrator.',
+      state_mismatch: 'Login session expired. Please try again.',
+      no_code: 'Discord login was cancelled.',
+      discord_token_failed: 'Could not connect to Discord. Try again.',
+      discord_user_failed: 'Could not fetch your Discord profile.',
+      discord_error: 'Something went wrong during Discord login.'
+    };
+    if (errorBanner) {
+      errorBanner.textContent = messages[err] || 'Login failed: ' + err;
+      errorBanner.style.display = 'block';
+    }
+    // Clean the URL
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   api('/api/auth/status').then(function(status) {
     if (status.needsSetup) {
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('setupPanel').style.display = 'block';
+    }
+    // Show Discord button if enabled
+    if (status.discordEnabled) {
+      document.getElementById('discordPanel').style.display = 'block';
     }
   }).catch(function(err) {
     showMessage('Cannot reach backend: ' + err.message, 'error');
