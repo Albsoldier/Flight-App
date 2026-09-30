@@ -1398,4 +1398,100 @@ body.theme-light::before {
   body::before {
     background-attachment: scroll, scroll;
   }
+/* ============================================
+   ANIMATED WINDSOCK
+   ============================================ */
+.windsock {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.windsock-pole {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 2px;
+  height: 30px;
+  background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(148, 163, 184, 0.5);
+}
+
+.windsock-body {
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 34px;
+  height: 12px;
+  transform-origin: left center;
+  transform: translateY(-50%);
+  animation: windsockSway 2.4s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px;
+  border-radius: 0 8px 8px 0;
+  background: linear-gradient(
+    90deg,
+    #f97316 0%, #f97316 20%,
+    #ffffff 20%, #ffffff 40%,
+    #f97316 40%, #f97316 60%,
+    #ffffff 60%, #ffffff 80%,
+    #f97316 80%
+  );
+  box-shadow:
+    0 0 8px rgba(249, 115, 22, 0.5),
+    inset 0 0 4px rgba(0, 0, 0, 0.2);
+}
+
+.windsock-ring {
+  display: inline-block;
+  width: 1px;
+  height: 100%;
+  background: rgba(120, 53, 15, 0.5);
+  border-radius: 1px;
+}
+
+.ring-1 { left: 6px; }
+.ring-2 { left: 13px; }
+.ring-3 { left: 20px; }
+.ring-4 { left: 27px; }
+
+@keyframes windsockSway {
+  0%   { transform: translateY(-50%) rotate(0deg) scaleX(1); }
+  25%  { transform: translateY(-50%) rotate(-4deg) scaleX(0.98); }
+  50%  { transform: translateY(-50%) rotate(2deg) scaleX(1.02); }
+  75%  { transform: translateY(-50%) rotate(-2deg) scaleX(0.99); }
+  100% { transform: translateY(-50%) rotate(0deg) scaleX(1); }
+}
+
+.windsock-body::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+html[data-theme="light"] .windsock-body,
+body.theme-light .windsock-body {
+  box-shadow: 0 0 8px rgba(249, 115, 22, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.15);
+}
+
+html[data-theme="light"] .windsock-pole,
+body.theme-light .windsock-pole {
+  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
+}
+
+@media (max-width: 900px) {
+  .windsock { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .windsock-body { animation: none; }
 }
