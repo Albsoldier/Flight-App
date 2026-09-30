@@ -81,11 +81,11 @@ async function initSchema() {
     )
   `);
 
-  console.log('Database schema ready (Turso)');
+  console.log('✅ Database schema ready (Turso)');
 }
 
 initSchema().catch(function(err) {
-  console.error('Schema init failed:', err);
+  console.error('❌ Schema init failed:', err);
 });
 
 // ---------- HELPERS (all async) ----------
