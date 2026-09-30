@@ -7,6 +7,7 @@ var stopwatchStartTime = null;
 var utcClockInterval = null;
 var allLogsCache = [];
 var socket = null;
+var aircraftCache = [];
 
 function api(path, options) {
   options = options || {};
@@ -72,7 +73,8 @@ function initTheme() {
   applyTheme(saved);
 
   var btn = document.getElementById('themeToggle');
-  if (btn) {
+  if (btn && !btn.dataset.bound) {
+    btn.dataset.bound = '1';
     btn.addEventListener('click', function() {
       var cur = document.documentElement.getAttribute('data-theme') || 'dark';
       var next = cur === 'dark' ? 'light' : 'dark';
@@ -84,7 +86,6 @@ function initTheme() {
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   document.body.setAttribute('data-theme', theme);
-
   if (theme === 'light') {
     document.body.classList.add('theme-light');
     document.body.classList.remove('theme-dark');
@@ -92,7 +93,6 @@ function applyTheme(theme) {
     document.body.classList.add('theme-dark');
     document.body.classList.remove('theme-light');
   }
-
   localStorage.setItem('theme', theme);
   updateThemeIcon(theme);
 }
@@ -105,38 +105,14 @@ function updateThemeIcon(theme) {
 // ---------- LOGIN ----------
 function initLoginPage() {
   initTheme();
-
-  // Handle error messages from URL (redirected from Discord callback)
-  var params = new URLSearchParams(window.location.search);
-  var err = params.get('error');
-  if (err) {
-    var errorBanner = document.getElementById('errorBanner');
-    var messages = {
-      not_in_gtaW: 'You must be a member of the GTAW Discord server to sign in.',
-      missing_role: 'Your GTAW account does not have the required role.',
-      account_inactive: 'Your account is inactive. Contact an administrator.',
-      state_mismatch: 'Login session expired. Please try again.',
-      no_code: 'Discord login was cancelled.',
-      discord_token_failed: 'Could not connect to Discord. Try again.',
-      discord_user_failed: 'Could not fetch your Discord profile.',
-      discord_error: 'Something went wrong during Discord login.'
-    };
-    if (errorBanner) {
-      errorBanner.textContent = messages[err] || 'Login failed: ' + err;
-      errorBanner.style.display = 'block';
-    }
-    // Clean the URL
-    window.history.replaceState({}, '', window.location.pathname);
-  }
-
   api('/api/auth/status').then(function(status) {
     if (status.needsSetup) {
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('setupPanel').style.display = 'block';
     }
-    // Show Discord button if enabled
     if (status.discordEnabled) {
-      document.getElementById('discordPanel').style.display = 'block';
+      var dp = document.getElementById('discordPanel');
+      if (dp) dp.style.display = 'block';
     }
   }).catch(function(err) {
     showMessage('Cannot reach backend: ' + err.message, 'error');
@@ -155,27 +131,30 @@ function initLoginPage() {
     }).catch(function(err) { showMessage(err.message, 'error'); });
   });
 
-  document.getElementById('setupForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    var username = document.getElementById('setupUsername').value;
-    var password = document.getElementById('setupPassword').value;
-    api('/api/auth/setup', {
-      method: 'POST',
-      body: JSON.stringify({
-        username: username, password: password,
-        fullName: document.getElementById('setupFullName').value,
-        email: document.getElementById('setupEmail').value
-      })
-    }).then(function() {
-      showMessage('Admin created! Logging in...', 'success');
-      setTimeout(function() {
-        api('/api/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ username: username, password: password })
-        }).then(function() { window.location.href = 'dashboard.html'; });
-      }, 800);
-    }).catch(function(err) { showMessage(err.message, 'error'); });
-  });
+  var setupForm = document.getElementById('setupForm');
+  if (setupForm) {
+    setupForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var username = document.getElementById('setupUsername').value;
+      var password = document.getElementById('setupPassword').value;
+      api('/api/auth/setup', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: username, password: password,
+          fullName: document.getElementById('setupFullName').value,
+          email: document.getElementById('setupEmail').value
+        })
+      }).then(function() {
+        showMessage('Admin created! Logging in...', 'success');
+        setTimeout(function() {
+          api('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ username: username, password: password })
+          }).then(function() { window.location.href = 'dashboard.html'; });
+        }, 800);
+      }).catch(function(err) { showMessage(err.message, 'error'); });
+    });
+  }
 }
 
 // ---------- DASHBOARD ----------
@@ -219,11 +198,8 @@ function initSocket() {
     });
     socket.on('flight-event', function(evt) {
       if (!evt) return;
-      if (evt.type === 'start') {
-        toast('🛫 ' + evt.pilotName + ' started a flight', 'info');
-      } else if (evt.type === 'stop') {
-        toast('🛬 ' + evt.pilotName + ' landed (' + evt.duration + ' h)', 'success');
-      }
+      if (evt.type === 'start') toast('🛫 ' + evt.pilotName + ' started a flight', 'info');
+      else if (evt.type === 'stop') toast('🛬 ' + evt.pilotName + ' landed (' + evt.duration + ' h)', 'success');
       if (currentUser && currentUser.role === 'admin') loadAllLogs();
     });
   } catch (e) { /* ignore */ }
@@ -253,8 +229,7 @@ function setupDashboard() {
 
   if (role === 'student') {
     var input = document.getElementById('flightStudentId');
-    input.value = currentUser.id;
-    input.disabled = true;
+    if (input) { input.value = currentUser.id; input.disabled = true; }
   }
 
   if (canManage) {
@@ -262,7 +237,8 @@ function setupDashboard() {
     if (selfField) selfField.style.display = 'block';
 
     var selfCheck = document.getElementById('selfLogCheck');
-    if (selfCheck) {
+    if (selfCheck && !selfCheck.dataset.bound) {
+      selfCheck.dataset.bound = '1';
       selfCheck.addEventListener('change', function() {
         var studentInput = document.getElementById('flightStudentId');
         var instructorField = document.getElementById('instructorSelectField');
@@ -280,52 +256,98 @@ function setupDashboard() {
   }
 
   if (isInstructor) {
-    document.getElementById('newRole').innerHTML = '<option value="student">Student</option>';
+    var roleSelect = document.getElementById('newRole');
+    if (roleSelect) roleSelect.innerHTML = '<option value="student">Student</option>';
   }
 
-  document.getElementById('logoutBtn').addEventListener('click', function() {
-    api('/api/auth/logout', { method: 'POST' }).then(function() {
-      window.location.href = 'index.html';
-    }).catch(function() { window.location.href = 'index.html'; });
-  });
+  var logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn && !logoutBtn.dataset.bound) {
+    logoutBtn.dataset.bound = '1';
+    logoutBtn.addEventListener('click', function() {
+      api('/api/auth/logout', { method: 'POST' }).then(function() {
+        window.location.href = 'index.html';
+      }).catch(function() { window.location.href = 'index.html'; });
+    });
+  }
 
   if (canManage) {
-    document.getElementById('createUserForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      api('/api/admin/users', {
-        method: 'POST',
-        body: JSON.stringify({
-          username: document.getElementById('newUsername').value,
-          password: document.getElementById('newPassword').value,
-          role: document.getElementById('newRole').value,
-          fullName: document.getElementById('newFullName').value,
-          email: document.getElementById('newEmail').value,
-          phone: document.getElementById('newPhone').value
-        })
-      }).then(function() {
-        showMessage('User created successfully', 'success');
-        e.target.reset();
-        loadUsers();
-        loadInstructors();
-      }).catch(function(err) { showMessage(err.message, 'error'); });
-    });
-    document.getElementById('refreshUsers').addEventListener('click', loadUsers);
+    var cuForm = document.getElementById('createUserForm');
+    if (cuForm && !cuForm.dataset.bound) {
+      cuForm.dataset.bound = '1';
+      cuForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        api('/api/admin/users', {
+          method: 'POST',
+          body: JSON.stringify({
+            username: document.getElementById('newUsername').value,
+            password: document.getElementById('newPassword').value,
+            role: document.getElementById('newRole').value,
+            fullName: document.getElementById('newFullName').value,
+            email: document.getElementById('newEmail').value,
+            phone: document.getElementById('newPhone').value
+          })
+        }).then(function() {
+          showMessage('User created successfully', 'success');
+          e.target.reset();
+          loadUsers();
+          loadInstructors();
+        }).catch(function(err) { showMessage(err.message, 'error'); });
+      });
+    }
+    var ruBtn = document.getElementById('refreshUsers');
+    if (ruBtn && !ruBtn.dataset.bound) {
+      ruBtn.dataset.bound = '1';
+      ruBtn.addEventListener('click', loadUsers);
+    }
   }
 
-  document.getElementById('startFlightBtn').addEventListener('click', startFlight);
-  document.getElementById('stopFlightBtn').addEventListener('click', stopFlight);
-  document.getElementById('refreshMaterials').addEventListener('click', loadMaterials);
-  document.getElementById('refreshMyLog').addEventListener('click', loadMyLog);
-  document.getElementById('printLogbook').addEventListener('click', printLogbook);
+  var startBtn = document.getElementById('startFlightBtn');
+  if (startBtn && !startBtn.dataset.bound) {
+    startBtn.dataset.bound = '1';
+    startBtn.addEventListener('click', startFlight);
+  }
+  var stopBtn = document.getElementById('stopFlightBtn');
+  if (stopBtn && !stopBtn.dataset.bound) {
+    stopBtn.dataset.bound = '1';
+    stopBtn.addEventListener('click', stopFlight);
+  }
+  var rmBtn = document.getElementById('refreshMaterials');
+  if (rmBtn && !rmBtn.dataset.bound) {
+    rmBtn.dataset.bound = '1';
+    rmBtn.addEventListener('click', loadMaterials);
+  }
+  var rmlBtn = document.getElementById('refreshMyLog');
+  if (rmlBtn && !rmlBtn.dataset.bound) {
+    rmlBtn.dataset.bound = '1';
+    rmlBtn.addEventListener('click', loadMyLog);
+  }
+  var plBtn = document.getElementById('printLogbook');
+  if (plBtn && !plBtn.dataset.bound) {
+    plBtn.dataset.bound = '1';
+    plBtn.addEventListener('click', printLogbook);
+  }
 
   if (isAdmin) {
-    document.getElementById('refreshAllLogs').addEventListener('click', loadAllLogs);
-    document.getElementById('exportCsv').addEventListener('click', exportCsv);
-    document.getElementById('filterPilot').addEventListener('input', applyFilters);
-    document.getElementById('filterInstructor').addEventListener('input', applyFilters);
-    document.getElementById('filterFrom').addEventListener('change', applyFilters);
-    document.getElementById('filterTo').addEventListener('change', applyFilters);
-    document.getElementById('clearFilters').addEventListener('click', function() {
+    var ralBtn = document.getElementById('refreshAllLogs');
+    if (ralBtn && !ralBtn.dataset.bound) {
+      ralBtn.dataset.bound = '1';
+      ralBtn.addEventListener('click', loadAllLogs);
+    }
+    var ecBtn = document.getElementById('exportCsv');
+    if (ecBtn && !ecBtn.dataset.bound) {
+      ecBtn.dataset.bound = '1';
+      ecBtn.addEventListener('click', exportCsv);
+    }
+    var fpIn = document.getElementById('filterPilot');
+    var fiIn = document.getElementById('filterInstructor');
+    var ffIn = document.getElementById('filterFrom');
+    var ftIn = document.getElementById('filterTo');
+    var cfBtn = document.getElementById('clearFilters');
+    if (fpIn) fpIn.addEventListener('input', applyFilters);
+    if (fiIn) fiIn.addEventListener('input', applyFilters);
+    if (ffIn) ffIn.addEventListener('change', applyFilters);
+    if (ftIn) ftIn.addEventListener('change', applyFilters);
+    if (cfBtn) cfBtn.addEventListener('click', function() {
       document.getElementById('filterPilot').value = '';
       document.getElementById('filterInstructor').value = '';
       document.getElementById('filterFrom').value = '';
@@ -335,15 +357,49 @@ function setupDashboard() {
   }
 
   if (canManage) {
-    document.getElementById('uploadForm').addEventListener('submit', uploadMaterial);
+    var uf = document.getElementById('uploadForm');
+    if (uf && !uf.dataset.bound) {
+      uf.dataset.bound = '1';
+      uf.addEventListener('submit', uploadMaterial);
+    }
   }
 
+  // ---------- AIRCRAFT: Wire up admin add button ----------
+  var showAddBtn = document.getElementById('showAddAircraftBtn');
+  if (showAddBtn && !showAddBtn.dataset.bound) {
+    showAddBtn.dataset.bound = '1';
+    showAddBtn.addEventListener('click', function() {
+      var form = document.getElementById('addAircraftForm');
+      if (form) {
+        form.style.display = 'block';
+        this.style.display = 'none';
+      }
+    });
+  }
+  var cancelBtn = document.getElementById('cancelAddAircraft');
+  if (cancelBtn && !cancelBtn.dataset.bound) {
+    cancelBtn.dataset.bound = '1';
+    cancelBtn.addEventListener('click', function() {
+      var form = document.getElementById('addAircraftForm');
+      var showBtn = document.getElementById('showAddAircraftBtn');
+      if (form) { form.style.display = 'none'; form.reset(); }
+      if (showBtn) showBtn.style.display = 'inline-block';
+    });
+  }
+  var addAcForm = document.getElementById('addAircraftForm');
+  if (addAcForm && !addAcForm.dataset.bound) {
+    addAcForm.dataset.bound = '1';
+    addAcForm.addEventListener('submit', createAircraft);
+  }
+
+  // Initial loads
   if (canManage) loadStats();
   if (isAdmin) loadOnlineUsers();
   if (canManage) loadUsers();
   loadInstructors();
   loadMaterials();
   loadMyLog();
+  loadAircraft();
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
@@ -559,23 +615,8 @@ function showProgress(userId, userName) {
     for (var m = 0; m < milestones.length; m++) {
       var ms = milestones[m];
       var pct = Math.min(100, (totalHours / ms.hours) * 100);
-      html += '<div class="milestone">' +
-        '<div class="milestone-head"><span>' + ms.name + '</span><span>' + totalHours.toFixed(1) + ' / ' + ms.hours + ' h</span></div>' +
-        '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
-        '</div>';
-    }
-
-    if (sessions.length > 0) {
-      html += '<h4 style="margin:20px 0 10px; color:#38bdf8;">Recent Flights</h4>';
-      html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Duration</th></tr></thead><tbody>';
-      var recent = sessions.slice(0, 10);
-      for (var r = 0; r < recent.length; r++) {
-        var s = recent[r];
-        html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td><td>' + (s.duration_hours || 0).toFixed(2) + ' h</td></tr>';
-      }
-      html += '</tbody></table>';
-    } else {
-      html += '<p class="muted" style="margin-top:20px;">No flights logged yet.</p>';
+      html += '<div class="milestone"><div class="milestone-head"><span>' + ms.name + '</span><span>' + totalHours.toFixed(1) + ' / ' + ms.hours + ' h</span></div>' +
+              '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div></div>';
     }
 
     document.getElementById('progressBody').innerHTML = html;
@@ -603,14 +644,10 @@ function loadMyLog() {
     for (var i = 0; i < data.sessions.length; i++) {
       var s = data.sessions[i];
       var instName = s.instructor_name || ((s.pilot_role === 'admin' || s.pilot_role === 'instructor') ? 'Self' : '—');
-      html += '<tr>' +
-        '<td>' + fmtDate(s.start_time) + '</td>' +
-        '<td>' + escapeHtml(s.aircraft || '—') + '</td>' +
-        '<td>' + escapeHtml(s.flight_type || '—') + '</td>' +
-        '<td>' + escapeHtml(instName) + '</td>' +
-        '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
-        '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
-      '</tr>';
+      html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td>' +
+              '<td>' + escapeHtml(s.flight_type || '—') + '</td><td>' + escapeHtml(instName) + '</td>' +
+              '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
+              '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td></tr>';
     }
     html += '</tbody></table>';
     document.getElementById('myLogList').innerHTML = html;
@@ -629,9 +666,7 @@ function loadAllLogs() {
   });
 }
 
-function applyFilters() {
-  renderAllLogs();
-}
+function applyFilters() { renderAllLogs(); }
 
 function renderAllLogs() {
   var filterPilot = (document.getElementById('filterPilot').value || '').toLowerCase();
@@ -645,12 +680,10 @@ function renderAllLogs() {
     var pilot = (s.pilot_name || '').toLowerCase();
     var inst = (s.instructor_name || '').toLowerCase();
     var dateStr = s.start_time ? String(s.start_time).slice(0, 10) : '';
-
     if (filterPilot && pilot.indexOf(filterPilot) === -1) continue;
     if (filterInstructor && inst.indexOf(filterInstructor) === -1) continue;
     if (filterFrom && dateStr < filterFrom) continue;
     if (filterTo && dateStr > filterTo) continue;
-
     filtered.push(s);
   }
 
@@ -669,20 +702,13 @@ function renderAllLogs() {
     var s = filtered[j];
     var role = s.pilot_role || s.pilot_role_actual || 'student';
     var instName = s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : '—');
-    html += '<tr>' +
-      '<td>' + fmtDate(s.start_time) + '</td>' +
-      '<td>' + escapeHtml(s.pilot_name || '—') + '</td>' +
-      '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
-      '<td>' + escapeHtml(s.aircraft || '—') + '</td>' +
-      '<td>' + escapeHtml(s.flight_type || '—') + '</td>' +
-      '<td>' + escapeHtml(instName) + '</td>' +
-      '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
-      '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
-      '<td>' +
-        '<button class="btn-secondary btn-small" onclick="editSession(' + s.id + ')">Edit</button> ' +
-        '<button class="btn-danger btn-small" onclick="deleteSession(' + s.id + ')">Delete</button>' +
-      '</td>' +
-    '</tr>';
+    html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.pilot_name || '—') + '</td>' +
+            '<td><span class="badge badge-' + role + '">' + role + '</span></td>' +
+            '<td>' + escapeHtml(s.aircraft || '—') + '</td><td>' + escapeHtml(s.flight_type || '—') + '</td>' +
+            '<td>' + escapeHtml(instName) + '</td><td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
+            '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>' +
+            '<td><button class="btn-secondary btn-small" onclick="editSession(' + s.id + ')">Edit</button> ' +
+            '<button class="btn-danger btn-small" onclick="deleteSession(' + s.id + ')">Delete</button></td></tr>';
   }
   html += '</tbody></table>';
   document.getElementById('allLogsList').innerHTML = html;
@@ -691,11 +717,8 @@ function renderAllLogs() {
 // ---------- EDIT SESSION ----------
 function editSession(id) {
   var s = null;
-  for (var i = 0; i < allLogsCache.length; i++) {
-    if (allLogsCache[i].id === id) { s = allLogsCache[i]; break; }
-  }
+  for (var i = 0; i < allLogsCache.length; i++) if (allLogsCache[i].id === id) { s = allLogsCache[i]; break; }
   if (!s) return;
-
   document.getElementById('editSessionId').value = s.id;
   document.getElementById('editDateTime').value = fmtDate(s.start_time);
   document.getElementById('editAircraft').value = s.aircraft || '';
@@ -705,9 +728,7 @@ function editSession(id) {
   document.getElementById('editModal').style.display = 'flex';
 }
 
-function closeEditModal() {
-  document.getElementById('editModal').style.display = 'none';
-}
+function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
 
 function saveEditSession() {
   var id = document.getElementById('editSessionId').value;
@@ -717,10 +738,7 @@ function saveEditSession() {
     duration_hours: parseFloat(document.getElementById('editDuration').value) || 0,
     notes: document.getElementById('editNotes').value
   };
-  api('/api/flights/sessions/' + id, {
-    method: 'PUT',
-    body: JSON.stringify(body)
-  }).then(function() {
+  api('/api/flights/sessions/' + id, { method: 'PUT', body: JSON.stringify(body) }).then(function() {
     showMessage('Session updated', 'success');
     closeEditModal();
     loadAllLogs();
@@ -748,14 +766,9 @@ function exportCsv() {
     var s = allLogsCache[i];
     var role = s.pilot_role || s.pilot_role_actual || 'student';
     rows.push([
-      fmtDate(s.start_time),
-      s.pilot_name || '',
-      role,
-      s.aircraft || '',
-      s.flight_type || '',
+      fmtDate(s.start_time), s.pilot_name || '', role, s.aircraft || '', s.flight_type || '',
       s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : ''),
-      s.notes || '',
-      (s.duration_hours || 0).toFixed(2)
+      s.notes || '', (s.duration_hours || 0).toFixed(2)
     ]);
   }
   downloadCsv(rows, 'all-flight-logs-' + new Date().toISOString().slice(0, 10) + '.csv');
@@ -777,11 +790,8 @@ function downloadCsv(rows, filename) {
   var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
@@ -791,28 +801,15 @@ function printLogbook() {
     var sessions = data.sessions || [];
     var totalHours = 0;
     for (var i = 0; i < sessions.length; i++) totalHours += (sessions[i].duration_hours || 0);
-
     var html = '<html><head><title>Logbook — ' + escapeHtml(currentUser.full_name) + '</title>';
-    html += '<style>';
-    html += 'body { font-family: Georgia, serif; padding: 40px; color: #000; }';
-    html += 'h1 { margin-bottom: 4px; } .sub { color: #666; margin-bottom: 24px; }';
-    html += 'table { width: 100%; border-collapse: collapse; margin-top: 20px; }';
-    html += 'th, td { border: 1px solid #999; padding: 6px 8px; text-align: left; font-size: 12px; }';
-    html += 'th { background: #eee; }';
-    html += '.total { margin-top: 16px; font-weight: bold; font-size: 14px; }';
-    html += '@media print { body { padding: 0; } }';
-    html += '</style></head><body>';
-    html += '<h1>Pilot Logbook</h1>';
-    html += '<div class="sub">' + escapeHtml(currentUser.full_name) + ' · ' + new Date().toLocaleDateString() + '</div>';
+    html += '<style>body{font-family:Georgia,serif;padding:40px;color:#000}h1{margin-bottom:4px}.sub{color:#666;margin-bottom:24px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #999;padding:6px 8px;text-align:left;font-size:12px}th{background:#eee}.total{margin-top:16px;font-weight:bold;font-size:14px}</style></head><body>';
+    html += '<h1>Pilot Logbook</h1><div class="sub">' + escapeHtml(currentUser.full_name) + ' · ' + new Date().toLocaleDateString() + '</div>';
     html += '<table><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration (h)</th></tr></thead><tbody>';
     for (var j = 0; j < sessions.length; j++) {
       var s = sessions[j];
       html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td><td>' + escapeHtml(s.flight_type || '—') + '</td><td>' + escapeHtml(s.instructor_name || '—') + '</td><td>' + escapeHtml(s.notes || '—') + '</td><td>' + (s.duration_hours || 0).toFixed(2) + '</td></tr>';
     }
-    html += '</tbody></table>';
-    html += '<div class="total">Total Hours: ' + totalHours.toFixed(2) + '</div>';
-    html += '</body></html>';
-
+    html += '</tbody></table><div class="total">Total Hours: ' + totalHours.toFixed(2) + '</div></body></html>';
     var w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
@@ -823,31 +820,23 @@ function printLogbook() {
 // ---------- FLIGHT ----------
 function startFlight() {
   if (activeSessionId) return showMessage('A flight is already active — stop it first', 'error');
-
   var selfLogCheck = document.getElementById('selfLogCheck');
   var selfLog = selfLogCheck && selfLogCheck.checked;
   var studentId = document.getElementById('flightStudentId').value;
   if (!studentId && !selfLog) return showMessage('Enter a student ID', 'error');
-
   var instructorSelect = document.getElementById('flightInstructorId');
   var instructorId = instructorSelect && instructorSelect.value ? parseInt(instructorSelect.value) : null;
-
   var body = {
     aircraft: document.getElementById('flightAircraft').value,
     flightType: document.getElementById('flightType').value,
     notes: document.getElementById('flightNotes').value
   };
-  if (selfLog) {
-    body.selfLog = true;
-  } else {
+  if (selfLog) body.selfLog = true;
+  else {
     body.studentId = parseInt(studentId);
     if (instructorId) body.instructorId = instructorId;
   }
-
-  api('/api/flights/sessions/start', {
-    method: 'POST',
-    body: JSON.stringify(body)
-  }).then(function(data) {
+  api('/api/flights/sessions/start', { method: 'POST', body: JSON.stringify(body) }).then(function(data) {
     activeSessionId = data.sessionId;
     activeSessionStudentId = selfLog ? currentUser.id : parseInt(studentId);
     stopwatchStartTime = Date.now();
@@ -861,20 +850,14 @@ function startFlight() {
     if (err.message && err.message.indexOf('already has active session') !== -1) {
       showMessage('Recovering stuck session...', 'info');
       recoverStuckSession(selfLog ? currentUser.id : parseInt(studentId));
-    } else {
-      showMessage(err.message, 'error');
-    }
+    } else { showMessage(err.message, 'error'); }
   });
 }
 
 function recoverStuckSession(studentId) {
   api('/api/flights/sessions/active/' + studentId).then(function(res) {
-    if (res.active) {
-      attachActiveSession(res.session);
-      showMessage('Recovered active flight #' + res.session.id, 'success');
-    } else {
-      showMessage('No active session found', 'error');
-    }
+    if (res.active) { attachActiveSession(res.session); showMessage('Recovered flight #' + res.session.id, 'success'); }
+    else showMessage('No active session found', 'error');
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
 
@@ -905,10 +888,7 @@ function stopFlight() {
 
 function doStopFlight() {
   var notes = document.getElementById('flightNotes').value;
-  api('/api/flights/sessions/' + activeSessionId + '/stop', {
-    method: 'POST',
-    body: JSON.stringify({ notes: notes })
-  }).then(function(result) {
+  api('/api/flights/sessions/' + activeSessionId + '/stop', { method: 'POST', body: JSON.stringify({ notes: notes }) }).then(function(result) {
     if (stopwatchInterval) clearInterval(stopwatchInterval);
     stopwatchInterval = null;
     document.getElementById('startFlightBtn').disabled = false;
@@ -921,10 +901,7 @@ function doStopFlight() {
     activeSessionId = null;
     activeSessionStudentId = null;
     stopwatchStartTime = null;
-    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
-      loadStats();
-      loadUsers();
-    }
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) { loadStats(); loadUsers(); }
     loadMyLog();
     if (currentUser && currentUser.role === 'admin') loadAllLogs();
   }).catch(function(err) { showMessage(err.message, 'error'); });
@@ -957,10 +934,128 @@ function uploadMaterial(e) {
   formData.append('title', document.getElementById('matTitle').value);
   formData.append('description', document.getElementById('matDescription').value);
   formData.append('category', document.getElementById('matCategory').value || 'General');
-
   api('/api/materials', { method: 'POST', body: formData }).then(function() {
     showMessage('Material uploaded', 'success');
     e.target.reset();
     loadMaterials();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+// ============================================
+// AIRCRAFT RENTALS
+// ============================================
+function loadAircraft() {
+  api('/api/aircraft').then(function(data) {
+    aircraftCache = data.aircraft || [];
+    renderAircraft();
+  }).catch(function(err) {
+    var el = document.getElementById('aircraftList');
+    if (el) el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderAircraft() {
+  var el = document.getElementById('aircraftList');
+  if (!el) return;
+
+  if (aircraftCache.length === 0) {
+    el.innerHTML = '<p class="muted">No aircraft in the fleet yet.</p>';
+    return;
+  }
+
+  var isAdmin = currentUser && currentUser.role === 'admin';
+  var html = '';
+
+  for (var i = 0; i < aircraftCache.length; i++) {
+    var ac = aircraftCache[i];
+    var photoUrl = ac.photo_filename ? '/api/aircraft/' + ac.id + '/photo?v=' + encodeURIComponent(ac.photo_filename) : null;
+    var statusLabel = ac.is_available === 1
+      ? '<span class="aircraft-status available">Available</span>'
+      : '<span class="aircraft-status unavailable">Unavailable</span>';
+
+    html += '<div class="aircraft-card">';
+    html += '<div class="aircraft-photo">';
+    if (photoUrl) {
+      html += '<img src="' + photoUrl + '" alt="' + escapeHtml(ac.tail_number) + '" loading="lazy">';
+    } else {
+      html += '<div class="aircraft-photo-placeholder">✈️</div>';
+    }
+    html += statusLabel;
+    html += '</div>';
+    html += '<div class="aircraft-info">';
+    html += '<div class="aircraft-tail">' + escapeHtml(ac.tail_number) + '</div>';
+    html += '<div class="aircraft-model">' + escapeHtml(ac.model) + '</div>';
+    if (ac.description) html += '<div class="aircraft-description">' + escapeHtml(ac.description) + '</div>';
+    html += '<div class="aircraft-rate">$' + Number(ac.hourly_rate).toLocaleString() + ' <span>/ hour</span></div>';
+    if (isAdmin) {
+      html += '<div class="aircraft-actions">';
+      html += '<button class="btn-secondary btn-small" onclick="editAircraft(' + ac.id + ')">Edit</button> ';
+      html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + escapeHtml(ac.tail_number).replace(/'/g, "\\'") + '\')">Delete</button>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function createAircraft(e) {
+  e.preventDefault();
+  var formData = new FormData();
+  formData.append('tail_number', document.getElementById('acTailNumber').value);
+  formData.append('model', document.getElementById('acModel').value);
+  formData.append('description', document.getElementById('acDescription').value);
+  formData.append('hourly_rate', document.getElementById('acRate').value);
+  var photo = document.getElementById('acPhoto').files[0];
+  if (photo) formData.append('photo', photo);
+
+  api('/api/aircraft', { method: 'POST', body: formData }).then(function() {
+    showMessage('Aircraft added', 'success');
+    document.getElementById('addAircraftForm').reset();
+    document.getElementById('addAircraftForm').style.display = 'none';
+    document.getElementById('showAddAircraftBtn').style.display = 'inline-block';
+    loadAircraft();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+function editAircraft(id) {
+  var ac = null;
+  for (var i = 0; i < aircraftCache.length; i++) if (aircraftCache[i].id === id) { ac = aircraftCache[i]; break; }
+  if (!ac) return;
+  document.getElementById('editAcId').value = ac.id;
+  document.getElementById('editAcTail').value = ac.tail_number || '';
+  document.getElementById('editAcModel').value = ac.model || '';
+  document.getElementById('editAcRate').value = ac.hourly_rate || 1500;
+  document.getElementById('editAcDescription').value = ac.description || '';
+  document.getElementById('editAcPhoto').value = '';
+  document.getElementById('editAcAvailable').checked = ac.is_available === 1;
+  document.getElementById('aircraftModal').style.display = 'flex';
+}
+
+function closeAircraftModal() { document.getElementById('aircraftModal').style.display = 'none'; }
+
+function saveAircraftEdit() {
+  var id = document.getElementById('editAcId').value;
+  var formData = new FormData();
+  formData.append('tail_number', document.getElementById('editAcTail').value);
+  formData.append('model', document.getElementById('editAcModel').value);
+  formData.append('hourly_rate', document.getElementById('editAcRate').value);
+  formData.append('description', document.getElementById('editAcDescription').value);
+  formData.append('is_available', document.getElementById('editAcAvailable').checked ? 'true' : 'false');
+  var photo = document.getElementById('editAcPhoto').files[0];
+  if (photo) formData.append('photo', photo);
+
+  api('/api/aircraft/' + id, { method: 'PUT', body: formData }).then(function() {
+    showMessage('Aircraft updated', 'success');
+    closeAircraftModal();
+    loadAircraft();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+function deleteAircraft(id, tail) {
+  if (!confirm('Delete aircraft "' + tail + '" permanently?\n\nThis cannot be undone.')) return;
+  api('/api/aircraft/' + id, { method: 'DELETE' }).then(function() {
+    showMessage('Aircraft "' + tail + '" deleted', 'success');
+    loadAircraft();
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
