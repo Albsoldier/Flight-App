@@ -173,7 +173,7 @@ body::after {
    ============================================ */
 .radar {
   position: fixed;
-  top: 90px;
+  top: 80px;
   right: 20px;
   width: 180px;
   height: 180px;
