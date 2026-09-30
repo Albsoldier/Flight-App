@@ -101,6 +101,9 @@ body::after {
   100% { transform: translateX(calc(100vw + 1200px)); }
 }
 
+/* ============================================
+   AIRCRAFT
+   ============================================ */
 .aircraft {
   position: fixed;
   pointer-events: none;
@@ -169,7 +172,7 @@ body::after {
 }
 
 /* ============================================
-   RADAR SWEEP — same position, brighter colors
+   RADAR SWEEP
    ============================================ */
 .radar {
   position: fixed;
@@ -211,34 +214,128 @@ body::after {
   to   { transform: rotate(360deg); }
 }
 
-/* Light theme — keep it visible but softer */
-html[data-theme="light"] .radar,
-body.theme-light .radar {
-  opacity: 0.35;
-  border-color: rgba(2, 132, 199, 0.55);
-  box-shadow: 0 0 18px rgba(2, 132, 199, 0.25);
+/* ============================================
+   WEATHER RADAR OVERLAY — LEFT SIDE
+   ============================================ */
+.weather-radar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 45vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+  opacity: 0.6;
 }
 
-@keyframes radarSweep {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+.weather-radar::before,
+.weather-radar::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(45px);
+  mix-blend-mode: screen;
 }
 
-/* Light theme — soften radar */
-html[data-theme="light"] .radar,
-body.theme-light .radar {
-  opacity: 0.35;
-  border-color: rgba(2, 132, 199, 0.5);
-  box-shadow:
-    0 0 20px rgba(2, 132, 199, 0.2),
-    0 0 40px rgba(2, 132, 199, 0.1);
+.weather-radar::before {
+  top: 8%;
+  left: -150px;
+  width: 480px;
+  height: 480px;
+  background:
+    radial-gradient(circle at 40% 40%,
+      rgba(239, 68, 68, 0.20) 0%,
+      rgba(245, 158, 11, 0.16) 18%,
+      rgba(34, 197, 94, 0.13) 38%,
+      rgba(16, 185, 129, 0.07) 58%,
+      transparent 75%);
+  animation: weatherDrift1 55s ease-in-out infinite;
 }
 
-@keyframes radarSweep {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+.weather-radar::after {
+  top: 55%;
+  left: -180px;
+  width: 620px;
+  height: 620px;
+  background:
+    radial-gradient(circle at 55% 50%,
+      rgba(245, 158, 11, 0.14) 0%,
+      rgba(34, 197, 94, 0.16) 22%,
+      rgba(16, 185, 129, 0.10) 45%,
+      transparent 72%);
+  animation: weatherDrift2 80s ease-in-out infinite;
+  animation-delay: -25s;
 }
 
+.weather-radar .echo {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  mix-blend-mode: screen;
+}
+
+.weather-radar .echo-1 {
+  top: 30%;
+  left: 20%;
+  width: 280px;
+  height: 280px;
+  background:
+    radial-gradient(circle at center,
+      rgba(239, 68, 68, 0.16) 0%,
+      rgba(245, 158, 11, 0.12) 25%,
+      rgba(34, 197, 94, 0.08) 55%,
+      transparent 75%);
+  animation: weatherDrift3 45s ease-in-out infinite;
+  animation-delay: -10s;
+}
+
+.weather-radar .echo-2 {
+  top: 70%;
+  left: 5%;
+  width: 350px;
+  height: 350px;
+  background:
+    radial-gradient(circle at center,
+      rgba(34, 197, 94, 0.14) 0%,
+      rgba(16, 185, 129, 0.08) 45%,
+      transparent 72%);
+  animation: weatherDrift4 65s ease-in-out infinite;
+  animation-delay: -35s;
+}
+
+@keyframes weatherDrift1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(60px, 40px) scale(1.12); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes weatherDrift2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(80px, -50px) scale(1.08); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes weatherDrift3 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.9; }
+  50%  { transform: translate(-40px, 80px) scale(1.15); opacity: 0.65; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.9; }
+}
+
+@keyframes weatherDrift4 {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0.85; }
+  50%  { transform: translate(50px, -60px) scale(1.1); opacity: 0.7; }
+  100% { transform: translate(0, 0) scale(1); opacity: 0.85; }
+}
+
+body:has(.container:only-child) .weather-radar {
+  width: 55vw;
+  opacity: 0.5;
+}
+
+/* ============================================
+   HORIZON
+   ============================================ */
 .horizon {
   position: fixed;
   bottom: 0;
@@ -250,6 +347,9 @@ body.theme-light .radar {
   background: linear-gradient(0deg, rgba(56, 189, 248, 0.06) 0%, transparent 100%);
 }
 
+/* ============================================
+   CONTAINER
+   ============================================ */
 .container {
   max-width: 1100px;
   margin: 0 auto;
@@ -263,6 +363,9 @@ body:has(.container:only-child) .container {
   margin-top: 80px;
 }
 
+/* ============================================
+   CARDS
+   ============================================ */
 .card {
   background: rgba(30, 41, 59, 0.75);
   backdrop-filter: blur(14px);
@@ -291,6 +394,9 @@ h2 { color: #38bdf8; font-size: 1.2rem; margin-bottom: 16px; }
 .subtitle { color: #94a3b8; margin-bottom: 20px; }
 .muted { color: #64748b; font-size: 0.9rem; }
 
+/* ============================================
+   FIELDS
+   ============================================ */
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; }
 .field input, .field select, textarea {
@@ -320,6 +426,9 @@ textarea { resize: vertical; min-height: 50px; }
   margin-bottom: 12px;
 }
 
+/* ============================================
+   BUTTONS
+   ============================================ */
 button {
   background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
   color: #0f172a;
@@ -342,6 +451,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-danger { background: #ef4444; color: white; }
 .btn-small { padding: 5px 12px; font-size: 0.8rem; margin: 0; border-radius: 6px; }
 
+/* ============================================
+   TOPBAR
+   ============================================ */
 .topbar {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
   backdrop-filter: blur(20px) saturate(180%);
@@ -604,6 +716,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   filter: none;
 }
 
+/* ============================================
+   BREADCRUMB
+   ============================================ */
 .breadcrumb-strip {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
@@ -655,6 +770,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .breadcrumb-sep { color: rgba(100, 116, 139, 0.5); user-select: none; }
 .breadcrumb-right { margin-left: auto; color: #475569; font-size: 0.72rem; }
 
+/* ============================================
+   STATS
+   ============================================ */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
 .stat-box {
   background: rgba(15, 23, 42, 0.7);
@@ -668,6 +786,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .stat-num { font-size: 1.8rem; font-weight: 700; color: #38bdf8; text-shadow: 0 0 16px rgba(56, 189, 248, 0.4); line-height: 1.1; }
 .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
 
+/* ============================================
+   LISTS & TABLES
+   ============================================ */
 .list-item {
   padding: 12px 0;
   border-bottom: 1px solid rgba(51, 65, 85, 0.6);
@@ -696,6 +817,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   text-overflow: ellipsis;
 }
 
+/* ============================================
+   STOPWATCH
+   ============================================ */
 .stopwatch {
   font-size: 3rem;
   font-weight: 700;
@@ -745,6 +869,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .stopwatch-controls { display: flex; gap: 10px; justify-content: center; }
 
+/* ============================================
+   MESSAGES
+   ============================================ */
 .message { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; min-height: 0; animation: slideIn 0.2s ease; }
 .message:empty { display: none; }
 .message.error { background: rgba(127, 29, 29, 0.6); border: 1px solid rgba(239, 68, 68, 0.4); color: #fecaca; }
@@ -758,6 +885,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 hr { border: none; border-top: 1px solid rgba(51, 65, 85, 0.6); margin: 20px 0; }
 
+/* ============================================
+   LOGIN LOGO
+   ============================================ */
 .login-logo {
   display: block;
   width: 110px;
@@ -777,8 +907,14 @@ hr { border: none; border-top: 1px solid rgba(51, 65, 85, 0.6); margin: 20px 0; 
 body:has(.container:only-child) h1,
 body:has(.container:only-child) .subtitle { text-align: center; }
 
+/* ============================================
+   LOG ACTIONS
+   ============================================ */
 .log-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 
+/* ============================================
+   FILTER BAR
+   ============================================ */
 .filter-bar {
   display: grid;
   grid-template-columns: 1fr 1fr auto auto auto;
@@ -804,6 +940,9 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 
 @media (max-width: 900px) { .filter-bar { grid-template-columns: 1fr 1fr; } }
 
+/* ============================================
+   TOASTS
+   ============================================ */
 .toast-container {
   position: fixed;
   top: 80px;
@@ -837,6 +976,9 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 .toast-error { border-left-color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
 .toast-info { border-left-color: #38bdf8; }
 
+/* ============================================
+   MODAL
+   ============================================ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -899,6 +1041,9 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 .modal-body { padding: 24px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
+/* ============================================
+   PROGRESS
+   ============================================ */
 .progress-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .milestone { margin-bottom: 14px; }
 .milestone-head {
@@ -980,16 +1125,16 @@ body:has(.container:only-child) .subtitle { text-align: center; }
   display: block;
 }
 
-body[data-theme="light"] .divider { color: #94a3b8; }
-body[data-theme="light"] .divider::before,
-body[data-theme="light"] .divider::after { background: rgba(100, 116, 139, 0.3); }
-
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 900px) {
   .wind-indicator { display: none; }
   .utc-clock { display: none; }
   .breadcrumb-strip { font-size: 0.7rem; padding: 6px 14px; }
   .topbar { grid-template-columns: 1fr auto; }
   .topbar-center { display: none; }
+  .weather-radar { width: 60vw; }
 }
 
 @media (max-width: 640px) {
@@ -1000,12 +1145,17 @@ body[data-theme="light"] .divider::after { background: rgba(100, 116, 139, 0.3);
   .status-lights { display: none; }
   .n-number { display: none; }
   .breadcrumb-strip { display: none; }
+  .weather-radar { width: 80vw; opacity: 0.4; }
+  .weather-radar::before,
+  .weather-radar::after,
+  .weather-radar .echo { filter: blur(28px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   body::before, body::after, .sky-clouds::before, .sky-clouds::after,
   .aircraft, .radar::after, .login-logo, .light, .wind-arrow,
-  .badge::before, .stopwatch.running, .stopwatch.running::before {
+  .badge::before, .stopwatch.running, .stopwatch.running::before,
+  .weather-radar::before, .weather-radar::after, .weather-radar .echo {
     animation: none;
   }
 }
@@ -1181,52 +1331,24 @@ body.theme-light .badge-instructor { color: #d97706; }
 
 html[data-theme="light"] .badge-student,
 body.theme-light .badge-student { color: #059669; }
-/* ============================================
-   STATIC WALLPAPER BACKGROUND
-   Sits behind all animated layers
-   ============================================ */
-body::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(10, 25, 41, 0.85) 0%,
-      rgba(15, 23, 42, 0.75) 30%,
-      rgba(26, 41, 66, 0.80) 60%,
-      rgba(30, 41, 59, 0.85) 100%),
-    url('bg.jpg');
-  background-size: cover, cover;
-  background-position: center center, center center;
-  background-repeat: no-repeat, no-repeat;
-  background-attachment: fixed, fixed;
-  animation: skyShift 40s ease-in-out infinite;
+
+html[data-theme="light"] .radar,
+body.theme-light .radar {
+  opacity: 0.35;
+  border-color: rgba(2, 132, 199, 0.55);
+  box-shadow: 0 0 18px rgba(2, 132, 199, 0.25);
 }
 
-/* On the login page specifically, make the image a bit more visible */
-body:has(.container:only-child)::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(10, 25, 41, 0.70) 0%,
-      rgba(15, 23, 42, 0.60) 30%,
-      rgba(26, 41, 66, 0.70) 60%,
-      rgba(30, 41, 59, 0.80) 100%),
-    url('bg.jpg');
+html[data-theme="light"] .weather-radar,
+body.theme-light .weather-radar {
+  opacity: 0.35;
+  filter: hue-rotate(180deg) brightness(0.9);
 }
 
-/* Light theme: apply a light overlay to the image */
-html[data-theme="light"] body::before,
-body.theme-light::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(219, 234, 254, 0.85) 0%,
-      rgba(224, 231, 255, 0.80) 50%,
-      rgba(241, 245, 249, 0.90) 100%),
-    url('bg.jpg');
-  animation: none !important;
-  filter: none !important;
-}
+html[data-theme="light"] .divider,
+body.theme-light .divider { color: #94a3b8; }
 
-/* Mobile: reduce file loading pressure */
-@media (max-width: 640px) {
-  body::before {
-    background-attachment: scroll, scroll;
-  }
-}
+html[data-theme="light"] .divider::before,
+html[data-theme="light"] .divider::after,
+body.theme-light .divider::before,
+body.theme-light .divider::after { background: rgba(100, 116, 139, 0.3); }
