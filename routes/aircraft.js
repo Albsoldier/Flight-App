@@ -141,7 +141,6 @@ router.put('/:id', authMiddleware.isAdmin, upload.single('photo'), async functio
       args.push(req.body.is_available === 'false' ? 0 : 1);
     }
     if (req.file) {
-      // Delete old photo
       if (existing.rows[0].photo_filename) {
         const oldPath = path.join(UPLOAD_DIR, existing.rows[0].photo_filename);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
