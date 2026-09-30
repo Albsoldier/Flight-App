@@ -168,30 +168,75 @@ body::after {
   100% { transform: scaleX(-1) translateX(calc(100vw + 200px)) translateY(-40px) rotate(8deg); }
 }
 
+./* ============================================
+   RADAR SWEEP — more visible
+   ============================================ */
 .radar {
   position: fixed;
   top: 90px;
-  right: 20px;
-  width: 180px;
-  height: 180px;
+  right: 30px;
+  width: 220px;
+  height: 220px;
   border-radius: 50%;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.15;
+  opacity: 0.55;
   background:
-    radial-gradient(circle at center, transparent 0%, transparent 30%, rgba(56, 189, 248, 0.1) 31%, transparent 32%),
-    radial-gradient(circle at center, transparent 0%, transparent 60%, rgba(56, 189, 248, 0.08) 61%, transparent 62%),
-    radial-gradient(circle at center, rgba(56, 189, 248, 0.05) 0%, transparent 70%);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+    radial-gradient(circle at center, transparent 0%, transparent 25%, rgba(56, 189, 248, 0.25) 26%, transparent 27%),
+    radial-gradient(circle at center, transparent 0%, transparent 50%, rgba(56, 189, 248, 0.20) 51%, transparent 52%),
+    radial-gradient(circle at center, transparent 0%, transparent 75%, rgba(56, 189, 248, 0.15) 76%, transparent 77%),
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.08) 0%, transparent 80%);
+  border: 1.5px solid rgba(56, 189, 248, 0.6);
+  box-shadow:
+    0 0 20px rgba(56, 189, 248, 0.35),
+    0 0 40px rgba(56, 189, 248, 0.15),
+    inset 0 0 30px rgba(56, 189, 248, 0.10);
 }
 
+/* Cross-hair lines through the center */
+.radar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(0deg, transparent 49%, rgba(56, 189, 248, 0.35) 49.5%, rgba(56, 189, 248, 0.35) 50.5%, transparent 51%),
+    linear-gradient(90deg, transparent 49%, rgba(56, 189, 248, 0.35) 49.5%, rgba(56, 189, 248, 0.35) 50.5%, transparent 51%);
+  pointer-events: none;
+}
+
+/* The rotating sweep beam */
 .radar::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 340deg, rgba(56, 189, 248, 0.6) 355deg, transparent 360deg);
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 300deg,
+    rgba(56, 189, 248, 0.15) 320deg,
+    rgba(56, 189, 248, 0.45) 345deg,
+    rgba(56, 189, 248, 0.85) 358deg,
+    rgba(56, 189, 248, 1) 360deg
+  );
   animation: radarSweep 4s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.9));
+}
+
+@keyframes radarSweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Light theme — soften radar */
+html[data-theme="light"] .radar,
+body.theme-light .radar {
+  opacity: 0.35;
+  border-color: rgba(2, 132, 199, 0.5);
+  box-shadow:
+    0 0 20px rgba(2, 132, 199, 0.2),
+    0 0 40px rgba(2, 132, 199, 0.1);
 }
 
 @keyframes radarSweep {
