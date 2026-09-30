@@ -84,6 +84,22 @@ async function initSchema() {
     )
   `);
 
+  // Aircraft rentals table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS aircraft (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tail_number TEXT UNIQUE NOT NULL,
+      model TEXT NOT NULL,
+      description TEXT,
+      hourly_rate REAL DEFAULT 1500,
+      photo_filename TEXT,
+      is_available INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_by INTEGER,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
   // Safe migrations for existing installs
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
