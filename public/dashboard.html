@@ -13,12 +13,11 @@
   <div class="aircraft aircraft-2">✈</div>
   <div class="aircraft aircraft-3">✈</div>
   <div class="radar"></div>
-  <div class="weather-radar">          
+  <div class="weather-radar">
     <div class="echo echo-1"></div>
     <div class="echo echo-2"></div>
   </div>
   <div class="horizon"></div>
-  ...
 
   <div id="toastContainer" class="toast-container"></div>
 
@@ -39,7 +38,15 @@
         <span class="light light-xpdr" title="XPDR"></span>
       </div>
       <div class="wind-indicator" title="Wind: 270° at 8 kts">
-        <span class="wind-arrow">↑</span>
+        <div class="windsock">
+          <div class="windsock-pole"></div>
+          <div class="windsock-body">
+            <span class="windsock-ring ring-1"></span>
+            <span class="windsock-ring ring-2"></span>
+            <span class="windsock-ring ring-3"></span>
+            <span class="windsock-ring ring-4"></span>
+          </div>
+        </div>
         <span class="wind-label">270° / 08</span>
       </div>
       <div class="utc-clock" id="utcClock">--:--:--Z</div>
