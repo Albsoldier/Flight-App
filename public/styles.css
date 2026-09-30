@@ -1401,10 +1401,13 @@ body.theme-light::before {
 /* ============================================
    ANIMATED WINDSOCK
    ============================================ */
+/* ============================================
+   ANIMATED WINDSOCK — high visibility
+   ============================================ */
 .windsock {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: 48px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
@@ -1414,84 +1417,102 @@ body.theme-light::before {
   position: absolute;
   left: 0;
   top: -4px;
-  width: 2px;
-  height: 30px;
-  background: linear-gradient(180deg, #94a3b8 0%, #475569 100%);
+  width: 3px;
+  height: 34px;
+  background: linear-gradient(180deg, #cbd5e1 0%, #64748b 100%);
   border-radius: 2px;
-  box-shadow: 0 0 4px rgba(148, 163, 184, 0.5);
+  box-shadow:
+    0 0 6px rgba(203, 213, 225, 0.7),
+    0 0 12px rgba(148, 163, 184, 0.4);
 }
 
 .windsock-body {
   position: absolute;
-  left: 3px;
+  left: 4px;
   top: 50%;
-  width: 34px;
-  height: 12px;
+  width: 42px;
+  height: 16px;
   transform-origin: left center;
   transform: translateY(-50%);
   animation: windsockSway 2.4s ease-in-out infinite;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 2px;
-  border-radius: 0 8px 8px 0;
+  gap: 5px;
+  padding: 0 3px;
+  border-radius: 0 10px 10px 0;
   background: linear-gradient(
     90deg,
-    #f97316 0%, #f97316 20%,
+    #ff6b1a 0%,  #ff6b1a 20%,
     #ffffff 20%, #ffffff 40%,
-    #f97316 40%, #f97316 60%,
+    #ff6b1a 40%, #ff6b1a 60%,
     #ffffff 60%, #ffffff 80%,
-    #f97316 80%
+    #ff6b1a 80%
   );
   box-shadow:
-    0 0 8px rgba(249, 115, 22, 0.5),
-    inset 0 0 4px rgba(0, 0, 0, 0.2);
+    0 0 0 1.5px rgba(255, 255, 255, 0.4),
+    0 0 14px rgba(255, 107, 26, 0.85),
+    0 0 24px rgba(255, 107, 26, 0.5),
+    inset 0 0 6px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.15) saturate(1.3);
 }
 
 .windsock-ring {
   display: inline-block;
-  width: 1px;
+  width: 1.5px;
   height: 100%;
-  background: rgba(120, 53, 15, 0.5);
+  background: rgba(120, 53, 15, 0.85);
   border-radius: 1px;
+  box-shadow: 0 0 3px rgba(120, 53, 15, 0.6);
 }
 
-.ring-1 { left: 6px; }
-.ring-2 { left: 13px; }
-.ring-3 { left: 20px; }
-.ring-4 { left: 27px; }
+.ring-1 { left: 8px; }
+.ring-2 { left: 16px; }
+.ring-3 { left: 24px; }
+.ring-4 { left: 32px; }
 
 @keyframes windsockSway {
   0%   { transform: translateY(-50%) rotate(0deg) scaleX(1); }
-  25%  { transform: translateY(-50%) rotate(-4deg) scaleX(0.98); }
-  50%  { transform: translateY(-50%) rotate(2deg) scaleX(1.02); }
+  25%  { transform: translateY(-50%) rotate(-5deg) scaleX(0.98); }
+  50%  { transform: translateY(-50%) rotate(3deg) scaleX(1.03); }
   75%  { transform: translateY(-50%) rotate(-2deg) scaleX(0.99); }
   100% { transform: translateY(-50%) rotate(0deg) scaleX(1); }
 }
 
+/* Extra bright halo behind the sock */
 .windsock-body::after {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: -6px;
   border-radius: inherit;
-  background: radial-gradient(ellipse at center, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(255, 107, 26, 0.35) 0%, transparent 70%);
   pointer-events: none;
+  z-index: -1;
+}
+
+/* Light theme adjustments */
+html[data-theme="light"] .windsock-pole,
+body.theme-light .windsock-pole {
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  box-shadow:
+    0 0 6px rgba(51, 65, 85, 0.5),
+    0 0 12px rgba(51, 65, 85, 0.3);
 }
 
 html[data-theme="light"] .windsock-body,
 body.theme-light .windsock-body {
-  box-shadow: 0 0 8px rgba(249, 115, 22, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 0 0 1.5px rgba(0, 0, 0, 0.15),
+    0 0 14px rgba(255, 107, 26, 0.7),
+    0 0 24px rgba(255, 107, 26, 0.4),
+    inset 0 0 6px rgba(0, 0, 0, 0.1);
 }
 
-html[data-theme="light"] .windsock-pole,
-body.theme-light .windsock-pole {
-  background: linear-gradient(180deg, #64748b 0%, #334155 100%);
-}
-
-@media (max-width: 900px) {
+/* Keep it visible on narrow screens too (only hide under 480px) */
+@media (max-width: 480px) {
   .windsock { display: none; }
 }
 
+/* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   .windsock-body { animation: none; }
 }
