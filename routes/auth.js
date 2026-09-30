@@ -1,108 +1,132 @@
-const express = require('express');
+const { createClient } = require('@libsql/client');
 const bcrypt = require('bcryptjs');
-const router = express.Router();
-const database = require('../database');
-const authMiddleware = require('../middleware/auth');
 
-router.get('/status', async function(req, res) {
-  try {
-    const initialized = (await database.isSystemInitialized()) || (await database.adminExists());
-    const hasAdmin = await database.adminExists();
-    res.json({
-      initialized: initialized,
-      hasAdmin: hasAdmin,
-      needsSetup: !initialized && !hasAdmin
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
+const db = createClient({
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN
 });
 
-router.post('/setup', async function(req, res) {
-  try {
-    if ((await database.isSystemInitialized()) || (await database.adminExists())) {
-      return res.status(403).json({ error: 'System already initialized' });
-    }
-    const username = req.body.username;
-    const password = req.body.password;
-    const fullName = req.body.fullName;
-    const email = req.body.email;
-    if (!username || !password || !fullName) {
-      return res.status(400).json({ error: 'Username, password, and fullName required' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-    const adminId = await database.createFirstAdmin(username, password, fullName, email);
-    await database.markSystemInitialized();
-    res.json({ success: true, message: 'Admin created', adminId: adminId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to create admin' });
-  }
+async function initSchema() {
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password TEXT,
+      role TEXT NOT NULL CHECK(role IN ('admin', 'instructor', 'student')),
+      full_name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      license_number TEXT,
+      total_hours REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_by INTEGER,
+      is_active INTEGER DEFAULT 1,
+      discord_id TEXT UNIQUE,
+      discord_username TEXT,
+      discord_avatar TEXT,
+      auth_provider TEXT DEFAULT 'local',
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS flight_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      instructor_id INTEGER,
+      aircraft TEXT,
+      start_time DATETIME,
+      end_time DATETIME,
+      duration_hours REAL DEFAULT 0,
+      flight_type TEXT,
+      notes TEXT,
+      status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'cancelled')),
+      pilot_role TEXT DEFAULT 'student',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (student_id) REFERENCES users(id),
+      FOREIGN KEY (instructor_id) REFERENCES users(id)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS study_materials (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      file_name TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      file_size INTEGER,
+      mime_type TEXT,
+      category TEXT,
+      uploaded_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (uploaded_by) REFERENCES users(id)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS active_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      session_token TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Safe migrations for existing installs
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN discord_avatar TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
+
+  console.log('✅ Database schema ready (Turso)');
+}
+
+initSchema().catch(function(err) {
+  console.error('❌ Schema init failed:', err);
 });
 
-router.post('/login', async function(req, res) {
-  try {
-    const username = req.body.username;
-    const password = req.body.password;
-    if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password required' });
-    }
-    const result = await database.db.execute({
-      sql: 'SELECT * FROM users WHERE username = ? AND is_active = 1',
-      args: [username]
-    });
-    const user = result.rows[0];
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    req.session.userId = user.id;
-    req.session.username = user.username;
-    req.session.role = user.role;
-    req.session.fullName = user.full_name;
-    await authMiddleware.logSession(user.id, req.session.id, req.ip, req.get('user-agent'));
-    res.json({
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        fullName: user.full_name,
-        email: user.email
-      }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Login failed' });
-  }
-});
+async function adminExists() {
+  const result = await db.execute("SELECT COUNT(*) as count FROM users WHERE role = 'admin'");
+  return result.rows[0].count > 0;
+}
 
-router.post('/logout', async function(req, res) {
-  if (req.session) await authMiddleware.removeSession(req.session.id);
-  req.session.destroy(function(err) {
-    if (err) return res.status(500).json({ error: 'Logout failed' });
-    res.json({ success: true });
+async function isSystemInitialized() {
+  const result = await db.execute("SELECT value FROM system_settings WHERE key = 'initialized'");
+  return result.rows.length > 0 && result.rows[0].value === 'true';
+}
+
+async function markSystemInitialized() {
+  await db.execute({
+    sql: "INSERT OR REPLACE INTO system_settings (key, value, updated_at) VALUES ('initialized', 'true', CURRENT_TIMESTAMP)",
+    args: []
   });
-});
+}
 
-router.get('/me', async function(req, res) {
-  if (!req.session || !req.session.userId) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  try {
-    const result = await database.db.execute({
-      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at FROM users WHERE id = ?',
-      args: [req.session.userId]
-    });
-    const user = result.rows[0];
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+async function createFirstAdmin(username, password, fullName, email) {
+  const hashed = bcrypt.hashSync(password, 10);
+  const result = await db.execute({
+    sql: "INSERT INTO users (username, password, role, full_name, email, auth_provider) VALUES (?, ?, 'admin', ?, ?, 'local')",
+    args: [username, hashed, fullName, email || null]
+  });
+  return Number(result.lastInsertRowid);
+}
 
-module.exports = router;
+module.exports = {
+  db,
+  adminExists,
+  isSystemInitialized,
+  markSystemInitialized,
+  createFirstAdmin
+};
