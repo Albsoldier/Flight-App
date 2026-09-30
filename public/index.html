@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Animated aviation background -->
   <div class="sky-clouds"></div>
   <div class="aircraft aircraft-1">✈</div>
   <div class="aircraft aircraft-2">✈</div>
@@ -22,6 +21,8 @@
       <h1>San Andreas Aviation Administration</h1>
       <p class="subtitle">Sign in to your flight tracker</p>
 
+      <div id="errorBanner" class="message error" style="display:none;"></div>
+
       <form id="loginForm">
         <div class="field">
           <label for="username">Username</label>
@@ -34,27 +35,23 @@
         <button type="submit" style="width:100%;">Sign In</button>
       </form>
 
+      <div id="discordPanel" style="display:none;">
+        <div class="divider"><span>or</span></div>
+        <a href="/api/auth/discord" class="discord-btn">
+          <span class="discord-icon">💬</span>
+          Continue with Discord (GTAW)
+        </a>
+      </div>
+
       <div id="setupPanel" style="display:none;">
         <hr>
         <h2>First-Time Setup</h2>
         <p class="muted">No admin account exists yet. Create one now.</p>
         <form id="setupForm">
-          <div class="field">
-            <label for="setupUsername">Username</label>
-            <input type="text" id="setupUsername" required>
-          </div>
-          <div class="field">
-            <label for="setupPassword">Password</label>
-            <input type="password" id="setupPassword" required minlength="6">
-          </div>
-          <div class="field">
-            <label for="setupFullName">Full Name</label>
-            <input type="text" id="setupFullName" required>
-          </div>
-          <div class="field">
-            <label for="setupEmail">Email</label>
-            <input type="email" id="setupEmail">
-          </div>
+          <div class="field"><label>Username</label><input type="text" id="setupUsername" required></div>
+          <div class="field"><label>Password</label><input type="password" id="setupPassword" required minlength="6"></div>
+          <div class="field"><label>Full Name</label><input type="text" id="setupFullName" required></div>
+          <div class="field"><label>Email</label><input type="email" id="setupEmail"></div>
           <button type="submit" style="width:100%;">Create Admin Account</button>
         </form>
       </div>
