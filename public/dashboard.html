@@ -68,7 +68,7 @@
     <a href="#section-mylog" class="breadcrumb-item" data-target="section-mylog">My Log</a>
     <span class="breadcrumb-sep" id="allLogsSep" style="display:none;">·</span>
     <a href="#section-alllogs" class="breadcrumb-item" data-target="section-alllogs" id="allLogsCrumb" style="display:none;">All Logs</a>
-        <span class="breadcrumb-sep">·</span>
+    <span class="breadcrumb-sep">·</span>
     <a href="#section-aircraft" class="breadcrumb-item" data-target="section-aircraft">Aircraft</a>
     <span class="breadcrumb-sep">·</span>
     <a href="#section-materials" class="breadcrumb-item" data-target="section-materials">Materials</a>
@@ -186,6 +186,50 @@
       <div id="allLogsList"></div>
     </section>
 
+    <!-- AIRCRAFT RENTALS -->
+    <section class="card" id="section-aircraft">
+      <h2>✈️ Aircraft Rentals</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Fleet available for rent at <strong style="color:#38bdf8;">$1,500 / hour</strong>.
+      </p>
+
+      <!-- Admin-only: add aircraft form -->
+      <div id="aircraftAddPanel" class="admin-only" style="display:none; margin-bottom:20px;">
+        <button id="showAddAircraftBtn" class="btn-secondary">+ Add Aircraft</button>
+
+        <form id="addAircraftForm" style="display:none; margin-top:16px; padding:16px; background:rgba(15,23,42,0.5); border:1px solid rgba(56,189,248,0.2); border-radius:8px;">
+          <div class="field-row">
+            <div class="field">
+              <label>Tail Number</label>
+              <input type="text" id="acTailNumber" placeholder="N172SA" required>
+            </div>
+            <div class="field">
+              <label>Model</label>
+              <input type="text" id="acModel" placeholder="Cessna 172S Skyhawk" required>
+            </div>
+            <div class="field">
+              <label>Hourly Rate ($)</label>
+              <input type="number" id="acRate" value="1500" step="1" min="0" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <textarea id="acDescription" rows="2" placeholder="Single-engine, IFR-equipped, 4 seats..."></textarea>
+          </div>
+          <div class="field">
+            <label>Photo</label>
+            <input type="file" id="acPhoto" accept="image/*">
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button type="submit">Save Aircraft</button>
+            <button type="button" id="cancelAddAircraft" class="btn-secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="aircraftList" class="aircraft-grid"></div>
+    </section>
+
     <section class="card" id="section-materials">
       <h2>Study Materials</h2>
       <div id="uploadPanel" class="instructor-only" style="display:none;">
@@ -230,6 +274,51 @@
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
           <button onclick="saveEditSession()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AIRCRAFT EDIT MODAL -->
+  <div id="aircraftModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="aircraftModalTitle">Edit Aircraft</h3>
+        <button class="modal-close" onclick="closeAircraftModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editAcId">
+        <div class="field-row">
+          <div class="field">
+            <label>Tail Number</label>
+            <input type="text" id="editAcTail">
+          </div>
+          <div class="field">
+            <label>Model</label>
+            <input type="text" id="editAcModel">
+          </div>
+          <div class="field">
+            <label>Hourly Rate ($)</label>
+            <input type="number" id="editAcRate" step="1" min="0">
+          </div>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <textarea id="editAcDescription" rows="2"></textarea>
+        </div>
+        <div class="field">
+          <label>Replace Photo (leave empty to keep current)</label>
+          <input type="file" id="editAcPhoto" accept="image/*">
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="editAcAvailable" style="width:auto; margin:0;">
+            <span>Available for rent</span>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeAircraftModal()">Cancel</button>
+          <button onclick="saveAircraftEdit()">Save</button>
         </div>
       </div>
     </div>
