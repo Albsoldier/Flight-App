@@ -1141,3 +1141,52 @@ body.theme-light .badge-instructor { color: #d97706; }
 
 html[data-theme="light"] .badge-student,
 body.theme-light .badge-student { color: #059669; }
+/* ============================================
+   STATIC WALLPAPER BACKGROUND
+   Sits behind all animated layers
+   ============================================ */
+body::before {
+  background-image:
+    linear-gradient(180deg,
+      rgba(10, 25, 41, 0.85) 0%,
+      rgba(15, 23, 42, 0.75) 30%,
+      rgba(26, 41, 66, 0.80) 60%,
+      rgba(30, 41, 59, 0.85) 100%),
+    url('bg.jpg');
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
+  animation: skyShift 40s ease-in-out infinite;
+}
+
+/* On the login page specifically, make the image a bit more visible */
+body:has(.container:only-child)::before {
+  background-image:
+    linear-gradient(180deg,
+      rgba(10, 25, 41, 0.70) 0%,
+      rgba(15, 23, 42, 0.60) 30%,
+      rgba(26, 41, 66, 0.70) 60%,
+      rgba(30, 41, 59, 0.80) 100%),
+    url('bg.jpg');
+}
+
+/* Light theme: apply a light overlay to the image */
+html[data-theme="light"] body::before,
+body.theme-light::before {
+  background-image:
+    linear-gradient(180deg,
+      rgba(219, 234, 254, 0.85) 0%,
+      rgba(224, 231, 255, 0.80) 50%,
+      rgba(241, 245, 249, 0.90) 100%),
+    url('bg.jpg');
+  animation: none !important;
+  filter: none !important;
+}
+
+/* Mobile: reduce file loading pressure */
+@media (max-width: 640px) {
+  body::before {
+    background-attachment: scroll, scroll;
+  }
+}
