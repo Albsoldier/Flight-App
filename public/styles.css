@@ -1,173 +1,156 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* ============================================
    ANIMATED FUEL TRUCK
-   Drives along the bottom of the dashboard
    ============================================ */
 .fuel-truck {
   position: fixed;
-  bottom: 24px;
-  left: -160px;
-  width: 120px;
-  height: 50px;
+  bottom: 30px;
+  left: -200px;
+  width: 160px;
+  height: 60px;
   pointer-events: none;
   z-index: -1;
-  opacity: 0.55;
-  animation: fuelTruckDrive 60s linear infinite;
-  animation-delay: -20s;
+  opacity: 0.7;
+  animation: fuelTruckDrive 55s linear infinite;
 }
 
-/* The truck body (tanker) */
+/* ---------- TANKER BODY ---------- */
 .fuel-truck::before {
   content: '';
   position: absolute;
-  bottom: 12px;
-  left: 34px;
-  width: 80px;
-  height: 26px;
-  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
-  border-radius: 4px 8px 8px 4px;
+  bottom: 16px;
+  left: 44px;
+  width: 100px;
+  height: 30px;
+  background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 60%, #b45309 100%);
+  border-radius: 4px 10px 10px 4px;
   box-shadow:
-    inset 0 -4px 0 rgba(0, 0, 0, 0.2),
-    inset 0 4px 0 rgba(255, 255, 255, 0.15),
-    0 0 12px rgba(245, 158, 11, 0.4);
+    inset 0 -6px 0 rgba(0, 0, 0, 0.25),
+    inset 0 4px 0 rgba(255, 255, 255, 0.25),
+    0 0 14px rgba(245, 158, 11, 0.5);
 }
 
-/* Silver/chrome tank detail */
+/* Chrome stripe on tanker */
 .fuel-truck::after {
   content: '';
   position: absolute;
-  bottom: 16px;
-  left: 40px;
-  width: 68px;
+  bottom: 24px;
+  left: 50px;
+  width: 88px;
   height: 3px;
   background: linear-gradient(90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.4) 20%,
-    rgba(255, 255, 255, 0.5) 50%,
-    rgba(255, 255, 255, 0.4) 80%,
+    rgba(255, 255, 255, 0.5) 15%,
+    rgba(255, 255, 255, 0.7) 50%,
+    rgba(255, 255, 255, 0.5) 85%,
     transparent 100%);
   border-radius: 2px;
+  z-index: 2;
 }
 
-/* Truck cab (front) — uses an inner span */
+/* ---------- CAB ---------- */
 .fuel-truck .cab {
   position: absolute;
-  bottom: 12px;
+  bottom: 16px;
   left: 0;
-  width: 34px;
-  height: 34px;
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 4px 8px 4px 4px;
+  width: 44px;
+  height: 40px;
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  border-radius: 6px 3px 3px 6px;
   box-shadow:
-    inset 0 0 0 1px rgba(56, 189, 248, 0.3),
-    0 0 10px rgba(30, 41, 59, 0.6);
+    inset 0 0 0 1px rgba(56, 189, 248, 0.35),
+    0 0 12px rgba(30, 41, 59, 0.7);
+  z-index: 3;
 }
 
 /* Cab window */
 .fuel-truck .cab::before {
   content: '';
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 18px;
-  height: 12px;
-  background: rgba(125, 211, 252, 0.5);
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 14px;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.7), rgba(56, 189, 248, 0.4));
   border-radius: 2px;
-  box-shadow: inset 0 0 4px rgba(56, 189, 248, 0.6);
+  box-shadow:
+    inset 0 0 6px rgba(56, 189, 248, 0.8),
+    0 0 8px rgba(56, 189, 248, 0.4);
 }
 
-/* Headlight beam */
+/* Headlight */
 .fuel-truck .cab::after {
   content: '';
   position: absolute;
-  bottom: 4px;
-  left: -8px;
-  width: 12px;
-  height: 4px;
-  background: radial-gradient(ellipse at left, rgba(255, 237, 213, 0.9) 0%, transparent 70%);
+  bottom: 6px;
+  left: -10px;
+  width: 14px;
+  height: 6px;
+  background: radial-gradient(ellipse at right, rgba(255, 237, 213, 1) 0%, rgba(255, 237, 213, 0.3) 50%, transparent 80%);
   border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255, 237, 213, 0.8);
 }
 
-/* "FUEL" label on the tank */
+/* ---------- "FUEL" LABEL ---------- */
 .fuel-truck .label {
   position: absolute;
-  bottom: 22px;
-  left: 48px;
+  bottom: 28px;
+  left: 62px;
   font-family: 'Courier New', monospace;
-  font-size: 0.55rem;
-  font-weight: 800;
-  letter-spacing: 0.15em;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
   color: #0f172a;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
-  z-index: 1;
+  text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+  z-index: 4;
 }
 
-/* Wheels */
+/* ---------- WHEELS ---------- */
 .fuel-truck .wheels {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 14px;
+  height: 20px;
+  z-index: 4;
 }
 
 .fuel-truck .wheel {
   position: absolute;
   bottom: 0;
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 70%);
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle at center, #334155 0%, #0f172a 65%);
   border-radius: 50%;
-  border: 2px solid #475569;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
-  animation: wheelSpin 0.6s linear infinite;
+  border: 3px solid #64748b;
+  box-shadow:
+    0 0 6px rgba(0, 0, 0, 0.7),
+    inset 0 0 4px rgba(0, 0, 0, 0.8);
 }
 
-.fuel-truck .wheel-1 { left: 4px; }
-.fuel-truck .wheel-2 { left: 76px; }
-.fuel-truck .wheel-3 { left: 96px; }
-
-@keyframes wheelSpin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+/* Inner wheel hub */
+.fuel-truck .wheel::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: radial-gradient(circle at center, #94a3b8 0%, #475569 100%);
+  border-radius: 50%;
 }
 
-/* Drive across the screen */
+.fuel-truck .wheel-1 { left: 6px; }
+.fuel-truck .wheel-2 { left: 92px; }
+.fuel-truck .wheel-3 { left: 116px; }
+
+/* ---------- ANIMATIONS ---------- */
 @keyframes fuelTruckDrive {
-  0%   { transform: translateX(0) translateY(0); opacity: 0; }
-  3%   { opacity: 0.55; }
-  47%  { transform: translateX(calc(50vw + 160px)) translateY(-2px); opacity: 0.55; }
-  50%  { opacity: 0; }
-  50.1% { transform: translateX(calc(100vw + 160px)) translateY(0); opacity: 0; }
-  97%  { transform: translateX(-100vw) translateY(0); opacity: 0; }
-  97.1% { transform: translateX(-160px) translateY(0); opacity: 0; }
-  100% { transform: translateX(0) translateY(0); opacity: 0; }
+  0%    { transform: translateX(0); }
+  100%  { transform: translateX(calc(100vw + 220px)); }
 }
 
-/* Slight bob when driving */
-.fuel-truck {
-  animation: fuelTruckDrive 60s linear infinite, truckBob 0.4s ease-in-out infinite;
-}
-
-@keyframes truckBob {
-  0%, 100% { margin-bottom: 0; }
-  50%      { margin-bottom: 1px; }
-}
-
-/* Light theme — flip colors so it stays visible */
+/* Light theme */
 html[data-theme="light"] .fuel-truck,
 body.theme-light .fuel-truck {
-  opacity: 0.45;
-}
-
-html[data-theme="light"] .fuel-truck::before,
-body.theme-light .fuel-truck::before {
-  background: linear-gradient(180deg, #ea580c 0%, #c2410c 100%);
-}
-
-html[data-theme="light"] .fuel-truck .cab,
-body.theme-light .fuel-truck .cab {
-  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+  opacity: 0.5;
 }
 
 /* Hide on small screens */
@@ -179,11 +162,11 @@ body.theme-light .fuel-truck .cab {
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .fuel-truck,
-  .fuel-truck .wheel {
+  .fuel-truck {
     animation: none;
   }
 }
+
 html, body { min-height: 100vh; }
 
 html { scroll-behavior: smooth; }
