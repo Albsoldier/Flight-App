@@ -356,11 +356,30 @@ function setupDashboard() {
     });
   }
 
+  // Upload panel: submit handler + toggle open/close buttons
   if (canManage) {
     var uf = document.getElementById('uploadForm');
     if (uf && !uf.dataset.bound) {
       uf.dataset.bound = '1';
       uf.addEventListener('submit', uploadMaterial);
+    }
+    var sub = document.getElementById('showUploadBtn');
+    if (sub && !sub.dataset.bound) {
+      sub.dataset.bound = '1';
+      sub.addEventListener('click', function() {
+        var form = document.getElementById('uploadForm');
+        if (form) { form.style.display = 'block'; this.style.display = 'none'; }
+      });
+    }
+    var cub = document.getElementById('cancelUploadBtn');
+    if (cub && !cub.dataset.bound) {
+      cub.dataset.bound = '1';
+      cub.addEventListener('click', function() {
+        var form = document.getElementById('uploadForm');
+        var showBtn = document.getElementById('showUploadBtn');
+        if (form) { form.style.display = 'none'; form.reset(); }
+        if (showBtn) showBtn.style.display = 'inline-block';
+      });
     }
   }
 
@@ -982,6 +1001,26 @@ function formatFileSize(bytes) {
   return (mb / 1024).toFixed(2) + ' GB';
 }
 
+function uploadMaterial(e) {
+  e.preventDefault();
+  var file = document.getElementById('matFile').files[0];
+  if (!file) return;
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', document.getElementById('matTitle').value);
+  formData.append('description', document.getElementById('matDescription').value);
+  formData.append('category', document.getElementById('matCategory').value || 'General');
+
+  api('/api/materials', { method: 'POST', body: formData }).then(function() {
+    showMessage('Material uploaded', 'success');
+    e.target.reset();
+    e.target.style.display = 'none';
+    var showBtn = document.getElementById('showUploadBtn');
+    if (showBtn) showBtn.style.display = 'inline-block';
+    loadMaterials();
+  }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
 function deleteMaterial(id, title) {
   if (!confirm('Delete material "' + title + '" permanently?\n\nThis will remove the file from storage and cannot be undone.')) {
     return;
@@ -994,6 +1033,7 @@ function deleteMaterial(id, title) {
     showMessage(err.message, 'error');
   });
 }
+
 // ============================================
 // AIRCRAFT RENTALS
 // ============================================
