@@ -18,15 +18,6 @@
     <div class="echo echo-2"></div>
   </div>
   <div class="horizon"></div>
-  <div class="fuel-truck">
-  <div class="cab"></div>
-  <div class="label">FUEL</div>
-  <div class="wheels">
-    <div class="wheel wheel-1"></div>
-    <div class="wheel wheel-2"></div>
-    <div class="wheel wheel-3"></div>
-  </div>
-</div>
 
   <div id="toastContainer" class="toast-container"></div>
 
@@ -202,7 +193,6 @@
         Fleet available for rent at <strong style="color:#38bdf8;">$1,500 / hour</strong>.
       </p>
 
-      <!-- Admin-only: add aircraft form -->
       <div id="aircraftAddPanel" class="admin-only" style="display:none; margin-bottom:20px;">
         <button id="showAddAircraftBtn" class="btn-secondary">+ Add Aircraft</button>
 
@@ -239,21 +229,47 @@
       <div id="aircraftList" class="aircraft-grid"></div>
     </section>
 
+    <!-- STUDY MATERIALS -->
     <section class="card" id="section-materials">
-      <h2>Study Materials</h2>
-      <div id="uploadPanel" class="instructor-only" style="display:none;">
-        <form id="uploadForm">
+      <h2>📚 Study Materials</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Ground school handbooks, checklists, and reference documents.
+      </p>
+
+      <div id="uploadPanel" class="instructor-only" style="display:none; margin-bottom:20px;">
+        <button id="showUploadBtn" class="btn-secondary">+ Upload Material</button>
+
+        <form id="uploadForm" style="display:none; margin-top:16px; padding:16px; background:rgba(15,23,42,0.5); border:1px solid rgba(56,189,248,0.2); border-radius:8px;">
           <div class="field-row">
-            <div class="field"><label>Title</label><input type="text" id="matTitle" required></div>
-            <div class="field"><label>Category</label><input type="text" id="matCategory" placeholder="Ground School"></div>
+            <div class="field">
+              <label>Title</label>
+              <input type="text" id="matTitle" placeholder="e.g., Private Pilot Handbook" required>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <input type="text" id="matCategory" placeholder="Ground School">
+            </div>
           </div>
-          <div class="field"><label>Description</label><input type="text" id="matDescription"></div>
-          <div class="field"><label>File</label><input type="file" id="matFile" required></div>
-          <button type="submit">Upload</button>
+          <div class="field">
+            <label>Description</label>
+            <input type="text" id="matDescription" placeholder="Short summary...">
+          </div>
+          <div class="field">
+            <label>File</label>
+            <input type="file" id="matFile" required>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button type="submit">Upload</button>
+            <button type="button" id="cancelUploadBtn" class="btn-secondary">Cancel</button>
+          </div>
         </form>
       </div>
-      <button id="refreshMaterials" class="btn-secondary">Refresh</button>
-      <div id="materialsList"></div>
+
+      <div class="materials-toolbar">
+        <button id="refreshMaterials" class="btn-secondary">Refresh</button>
+      </div>
+
+      <div id="materialsList" class="materials-grid"></div>
     </section>
   </main>
 
@@ -288,7 +304,6 @@
     </div>
   </div>
 
-  <!-- AIRCRAFT EDIT MODAL -->
   <div id="aircraftModal" class="modal-backdrop" style="display:none;">
     <div class="modal">
       <div class="modal-header">
