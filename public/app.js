@@ -914,14 +914,40 @@ function loadMaterials() {
       document.getElementById('materialsList').innerHTML = '<p class="muted">No materials uploaded yet.</p>';
       return;
     }
+
+    var isAdmin = currentUser && currentUser.role === 'admin';
     var html = '';
+
     for (var i = 0; i < data.materials.length; i++) {
       var m = data.materials[i];
-      html += '<div class="list-item"><strong>' + escapeHtml(m.title) + '</strong> <span class="badge">' + escapeHtml(m.category || 'General') + '</span> <a href="/api/materials/' + m.id + '/download" target="_blank">Download</a></div>';
+      html += '<div class="list-item">';
+      html += '<strong>' + escapeHtml(m.title) + '</strong>';
+      html += ' <span class="badge">' + escapeHtml(m.category || 'General') + '</span>';
+      html += '<span class="material-actions">';
+      html += '<a href="/api/materials/' + m.id + '/download" target="_blank">Download</a>';
+      if (isAdmin) {
+        html += '<button class="btn-danger btn-small" onclick="deleteMaterial(' + m.id + ', \'' + escapeHtml(m.title).replace(/'/g, "\\'") + '\')">Delete</button>';
+      }
+      html += '</span>';
+      html += '</div>';
     }
+
     document.getElementById('materialsList').innerHTML = html;
   }).catch(function(err) {
     document.getElementById('materialsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function deleteMaterial(id, title) {
+  if (!confirm('Delete material "' + title + '" permanently?\n\nThis will remove the file from storage and cannot be undone.')) {
+    return;
+  }
+  api('/api/materials/' + id, { method: 'DELETE' }).then(function() {
+    showMessage('Material "' + title + '" deleted', 'success');
+    loadMaterials();
+    loadStats();
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
   });
 }
 
