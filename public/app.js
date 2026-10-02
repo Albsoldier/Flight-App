@@ -456,6 +456,7 @@ function setupDashboard() {
   loadMyLog();
   loadAircraft();
   loadNotams();
+    loadWaypoints();
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
