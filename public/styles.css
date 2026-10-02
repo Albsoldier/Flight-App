@@ -1,5 +1,129 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* ============================================
+   FLIGHT PLANNER
+   ============================================ */
+.planner-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.planner-controls .field { margin-bottom: 0; }
+
+.planner-controls button {
+  margin-top: 0;
+  height: 42px;
+  padding: 0 24px;
+}
+
+@media (max-width: 700px) {
+  .planner-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.route-result {
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 10px;
+  margin-top: 16px;
+}
+
+.route-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.route-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #38bdf8;
+}
+
+.route-distance {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #6ee7b7;
+}
+
+.route-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 16px;
+  background: rgba(10, 25, 41, 0.5);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.route-waypoint {
+  padding: 4px 10px;
+  background: rgba(51, 65, 85, 0.6);
+  border-radius: 4px;
+  color: #cbd5e1;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.route-waypoint.route-endpoint {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(14, 165, 233, 0.15));
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+
+.route-arrow {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.route-text {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  padding-top: 12px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.route-text strong {
+  color: #38bdf8;
+  margin-right: 6px;
+}
+
+/* Light theme */
+html[data-theme="light"] .route-result,
+body.theme-light .route-result {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+html[data-theme="light"] .route-waypoint,
+body.theme-light .route-waypoint {
+  background: rgba(203, 213, 225, 0.8);
+  color: #1e293b;
+}
+
+html[data-theme="light"] .route-text,
+body.theme-light .route-text {
+  color: #475569;
+}
+/* ============================================
    NOTAM SIDEBAR
    ============================================ */
 .notam-sidebar {
