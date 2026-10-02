@@ -1,4 +1,163 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ============================================
+   STUDY MATERIALS — CARD GRID
+   ============================================ */
+.materials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.material-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  align-items: flex-start;
+}
+
+.material-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 8px 24px rgba(56, 189, 248, 0.2);
+}
+
+.material-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
+}
+
+.material-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.material-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.material-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #e2e8f0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.material-category {
+  display: inline-block;
+  padding: 3px 10px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #38bdf8;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.material-description {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.material-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-family: 'Courier New', monospace;
+  margin-bottom: 12px;
+}
+
+.material-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.btn-download {
+  display: inline-block;
+  padding: 5px 12px;
+  background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
+  color: #0f172a;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.25);
+}
+
+.btn-download:hover {
+  filter: brightness(1.1);
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.btn-download:active {
+  transform: translateY(1px);
+}
+
+.materials-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+html[data-theme="light"] .material-card,
+body.theme-light .material-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+html[data-theme="light"] .material-title,
+body.theme-light .material-title { color: #1e293b; }
+
+html[data-theme="light"] .material-description,
+body.theme-light .material-description { color: #475569; }
+
+html[data-theme="light"] .material-meta,
+body.theme-light .material-meta { color: #64748b; }
+
+html[data-theme="light"] .material-category,
+body.theme-light .material-category {
+  background: rgba(56, 189, 248, 0.2);
+  color: #0284c7;
+}
+
+@media (max-width: 640px) {
+  .materials-grid { grid-template-columns: 1fr; }
+}
+
 /* ============================================
    AIRCRAFT RENTALS — GRID LAYOUT
    ============================================ */
@@ -127,12 +286,10 @@
   border-top: 1px solid rgba(51, 65, 85, 0.6);
 }
 
-/* Responsive: on very narrow screens, single column */
 @media (max-width: 600px) {
-  .aircraft-grid {
-    grid-template-columns: 1fr;
-  }
+  .aircraft-grid { grid-template-columns: 1fr; }
 }
+
 /* ============================================
    ANIMATED FUEL TRUCK
    ============================================ */
@@ -146,9 +303,9 @@
   z-index: -1;
   opacity: 0.7;
   animation: fuelTruckDrive 55s linear infinite;
+  transform: scaleX(-1);
 }
 
-/* ---------- TANKER BODY ---------- */
 .fuel-truck::before {
   content: '';
   position: absolute;
@@ -164,7 +321,6 @@
     0 0 14px rgba(245, 158, 11, 0.5);
 }
 
-/* Chrome stripe on tanker */
 .fuel-truck::after {
   content: '';
   position: absolute;
@@ -172,17 +328,11 @@
   left: 50px;
   width: 88px;
   height: 3px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.5) 15%,
-    rgba(255, 255, 255, 0.7) 50%,
-    rgba(255, 255, 255, 0.5) 85%,
-    transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.5) 15%, rgba(255, 255, 255, 0.7) 50%, rgba(255, 255, 255, 0.5) 85%, transparent 100%);
   border-radius: 2px;
   z-index: 2;
 }
 
-/* ---------- CAB ---------- */
 .fuel-truck .cab {
   position: absolute;
   bottom: 16px;
@@ -191,13 +341,10 @@
   height: 40px;
   background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
   border-radius: 6px 3px 3px 6px;
-  box-shadow:
-    inset 0 0 0 1px rgba(56, 189, 248, 0.35),
-    0 0 12px rgba(30, 41, 59, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35), 0 0 12px rgba(30, 41, 59, 0.7);
   z-index: 3;
 }
 
-/* Cab window */
 .fuel-truck .cab::before {
   content: '';
   position: absolute;
@@ -207,12 +354,9 @@
   height: 14px;
   background: linear-gradient(180deg, rgba(125, 211, 252, 0.7), rgba(56, 189, 248, 0.4));
   border-radius: 2px;
-  box-shadow:
-    inset 0 0 6px rgba(56, 189, 248, 0.8),
-    0 0 8px rgba(56, 189, 248, 0.4);
+  box-shadow: inset 0 0 6px rgba(56, 189, 248, 0.8), 0 0 8px rgba(56, 189, 248, 0.4);
 }
 
-/* Headlight */
 .fuel-truck .cab::after {
   content: '';
   position: absolute;
@@ -225,7 +369,6 @@
   box-shadow: 0 0 12px rgba(255, 237, 213, 0.8);
 }
 
-/* ---------- "FUEL" LABEL ---------- */
 .fuel-truck .label {
   position: absolute;
   bottom: 28px;
@@ -237,9 +380,9 @@
   color: #0f172a;
   text-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
   z-index: 4;
+  transform: scaleX(-1);
 }
 
-/* ---------- WHEELS ---------- */
 .fuel-truck .wheels {
   position: absolute;
   bottom: 0;
@@ -257,12 +400,9 @@
   background: radial-gradient(circle at center, #334155 0%, #0f172a 65%);
   border-radius: 50%;
   border: 3px solid #64748b;
-  box-shadow:
-    0 0 6px rgba(0, 0, 0, 0.7),
-    inset 0 0 4px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.7), inset 0 0 4px rgba(0, 0, 0, 0.8);
 }
 
-/* Inner wheel hub */
 .fuel-truck .wheel::after {
   content: '';
   position: absolute;
@@ -275,30 +415,20 @@
 .fuel-truck .wheel-2 { left: 92px; }
 .fuel-truck .wheel-3 { left: 116px; }
 
-/* ---------- ANIMATIONS ---------- */
 @keyframes fuelTruckDrive {
-  0%    { transform: translateX(0); }
-  100%  { transform: translateX(calc(100vw + 220px)); }
+  0%    { transform: scaleX(-1) translateX(0); }
+  100%  { transform: scaleX(-1) translateX(calc(100vw + 220px)); }
 }
 
-/* Light theme */
 html[data-theme="light"] .fuel-truck,
-body.theme-light .fuel-truck {
-  opacity: 0.5;
-}
+body.theme-light .fuel-truck { opacity: 0.5; }
 
-/* Hide on small screens */
 @media (max-width: 640px) {
-  .fuel-truck {
-    display: none;
-  }
+  .fuel-truck { display: none; }
 }
 
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .fuel-truck {
-    animation: none;
-  }
+  .fuel-truck { animation: none; }
 }
 
 html, body { min-height: 100vh; }
@@ -323,16 +453,35 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, #0a1929 0%, #0f172a 30%, #1a2942 60%, #1e293b 100%);
-  background-size: 100% 200%;
+  background-image:
+    linear-gradient(180deg,
+      rgba(10, 25, 41, 0.85) 0%,
+      rgba(15, 23, 42, 0.75) 30%,
+      rgba(26, 41, 66, 0.80) 60%,
+      rgba(30, 41, 59, 0.85) 100%),
+    url('bg.jpg');
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
   animation: skyShift 40s ease-in-out infinite;
   z-index: -3;
 }
 
+body:has(.container:only-child)::before {
+  background-image:
+    linear-gradient(180deg,
+      rgba(10, 25, 41, 0.70) 0%,
+      rgba(15, 23, 42, 0.60) 30%,
+      rgba(26, 41, 66, 0.70) 60%,
+      rgba(30, 41, 59, 0.80) 100%),
+    url('bg.jpg');
+}
+
 @keyframes skyShift {
-  0%   { background-position: 0% 0%; filter: brightness(1); }
-  50%  { background-position: 0% 50%; filter: brightness(1.15); }
-  100% { background-position: 0% 0%; filter: brightness(1); }
+  0%   { background-position: center center, 0% 0%; filter: brightness(1); }
+  50%  { background-position: center center, 0% 50%; filter: brightness(1.15); }
+  100% { background-position: center center, 0% 0%; filter: brightness(1); }
 }
 
 body::after {
@@ -402,9 +551,6 @@ body::after {
   100% { transform: translateX(calc(100vw + 1200px)); }
 }
 
-/* ============================================
-   AIRCRAFT
-   ============================================ */
 .aircraft {
   position: fixed;
   pointer-events: none;
@@ -472,9 +618,6 @@ body::after {
   100% { transform: scaleX(-1) translateX(calc(100vw + 200px)) translateY(-40px) rotate(8deg); }
 }
 
-/* ============================================
-   RADAR SWEEP
-   ============================================ */
 .radar {
   position: fixed;
   top: 130px;
@@ -498,14 +641,7 @@ body::after {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 330deg,
-    rgba(56, 189, 248, 0.35) 345deg,
-    rgba(56, 189, 248, 0.85) 358deg,
-    rgba(125, 211, 252, 1) 360deg
-  );
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 330deg, rgba(56, 189, 248, 0.35) 345deg, rgba(56, 189, 248, 0.85) 358deg, rgba(125, 211, 252, 1) 360deg);
   animation: radarSweep 4s linear infinite;
   filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.8));
 }
@@ -515,9 +651,6 @@ body::after {
   to   { transform: rotate(360deg); }
 }
 
-/* ============================================
-   WEATHER RADAR OVERLAY — LEFT SIDE
-   ============================================ */
 .weather-radar {
   position: fixed;
   top: 0;
@@ -544,13 +677,7 @@ body::after {
   left: -150px;
   width: 480px;
   height: 480px;
-  background:
-    radial-gradient(circle at 40% 40%,
-      rgba(239, 68, 68, 0.20) 0%,
-      rgba(245, 158, 11, 0.16) 18%,
-      rgba(34, 197, 94, 0.13) 38%,
-      rgba(16, 185, 129, 0.07) 58%,
-      transparent 75%);
+  background: radial-gradient(circle at 40% 40%, rgba(239, 68, 68, 0.20) 0%, rgba(245, 158, 11, 0.16) 18%, rgba(34, 197, 94, 0.13) 38%, rgba(16, 185, 129, 0.07) 58%, transparent 75%);
   animation: weatherDrift1 55s ease-in-out infinite;
 }
 
@@ -559,12 +686,7 @@ body::after {
   left: -180px;
   width: 620px;
   height: 620px;
-  background:
-    radial-gradient(circle at 55% 50%,
-      rgba(245, 158, 11, 0.14) 0%,
-      rgba(34, 197, 94, 0.16) 22%,
-      rgba(16, 185, 129, 0.10) 45%,
-      transparent 72%);
+  background: radial-gradient(circle at 55% 50%, rgba(245, 158, 11, 0.14) 0%, rgba(34, 197, 94, 0.16) 22%, rgba(16, 185, 129, 0.10) 45%, transparent 72%);
   animation: weatherDrift2 80s ease-in-out infinite;
   animation-delay: -25s;
 }
@@ -581,12 +703,7 @@ body::after {
   left: 20%;
   width: 280px;
   height: 280px;
-  background:
-    radial-gradient(circle at center,
-      rgba(239, 68, 68, 0.16) 0%,
-      rgba(245, 158, 11, 0.12) 25%,
-      rgba(34, 197, 94, 0.08) 55%,
-      transparent 75%);
+  background: radial-gradient(circle at center, rgba(239, 68, 68, 0.16) 0%, rgba(245, 158, 11, 0.12) 25%, rgba(34, 197, 94, 0.08) 55%, transparent 75%);
   animation: weatherDrift3 45s ease-in-out infinite;
   animation-delay: -10s;
 }
@@ -596,11 +713,7 @@ body::after {
   left: 5%;
   width: 350px;
   height: 350px;
-  background:
-    radial-gradient(circle at center,
-      rgba(34, 197, 94, 0.14) 0%,
-      rgba(16, 185, 129, 0.08) 45%,
-      transparent 72%);
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.14) 0%, rgba(16, 185, 129, 0.08) 45%, transparent 72%);
   animation: weatherDrift4 65s ease-in-out infinite;
   animation-delay: -35s;
 }
@@ -634,9 +747,6 @@ body:has(.container:only-child) .weather-radar {
   opacity: 0.5;
 }
 
-/* ============================================
-   HORIZON
-   ============================================ */
 .horizon {
   position: fixed;
   bottom: 0;
@@ -648,9 +758,6 @@ body:has(.container:only-child) .weather-radar {
   background: linear-gradient(0deg, rgba(56, 189, 248, 0.06) 0%, transparent 100%);
 }
 
-/* ============================================
-   CONTAINER
-   ============================================ */
 .container {
   max-width: 1100px;
   margin: 0 auto;
@@ -664,9 +771,6 @@ body:has(.container:only-child) .container {
   margin-top: 80px;
 }
 
-/* ============================================
-   CARDS
-   ============================================ */
 .card {
   background: rgba(30, 41, 59, 0.75);
   backdrop-filter: blur(14px);
@@ -695,9 +799,6 @@ h2 { color: #38bdf8; font-size: 1.2rem; margin-bottom: 16px; }
 .subtitle { color: #94a3b8; margin-bottom: 20px; }
 .muted { color: #64748b; font-size: 0.9rem; }
 
-/* ============================================
-   FIELDS
-   ============================================ */
 .field { margin-bottom: 14px; }
 .field label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 4px; }
 .field input, .field select, textarea {
@@ -727,9 +828,6 @@ textarea { resize: vertical; min-height: 50px; }
   margin-bottom: 12px;
 }
 
-/* ============================================
-   BUTTONS
-   ============================================ */
 button {
   background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
   color: #0f172a;
@@ -752,9 +850,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-danger { background: #ef4444; color: white; }
 .btn-small { padding: 5px 12px; font-size: 0.8rem; margin: 0; border-radius: 6px; }
 
-/* ============================================
-   TOPBAR
-   ============================================ */
 .topbar {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%);
   backdrop-filter: blur(20px) saturate(180%);
@@ -1017,9 +1112,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   filter: none;
 }
 
-/* ============================================
-   BREADCRUMB
-   ============================================ */
 .breadcrumb-strip {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
@@ -1071,9 +1163,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .breadcrumb-sep { color: rgba(100, 116, 139, 0.5); user-select: none; }
 .breadcrumb-right { margin-left: auto; color: #475569; font-size: 0.72rem; }
 
-/* ============================================
-   STATS
-   ============================================ */
 .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; }
 .stat-box {
   background: rgba(15, 23, 42, 0.7);
@@ -1087,9 +1176,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .stat-num { font-size: 1.8rem; font-weight: 700; color: #38bdf8; text-shadow: 0 0 16px rgba(56, 189, 248, 0.4); line-height: 1.1; }
 .stat-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
 
-/* ============================================
-   LISTS & TABLES
-   ============================================ */
 .list-item {
   padding: 12px 0;
   border-bottom: 1px solid rgba(51, 65, 85, 0.6);
@@ -1118,9 +1204,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   text-overflow: ellipsis;
 }
 
-/* ============================================
-   STOPWATCH
-   ============================================ */
 .stopwatch {
   font-size: 3rem;
   font-weight: 700;
@@ -1170,9 +1253,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .stopwatch-controls { display: flex; gap: 10px; justify-content: center; }
 
-/* ============================================
-   MESSAGES
-   ============================================ */
 .message { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; min-height: 0; animation: slideIn 0.2s ease; }
 .message:empty { display: none; }
 .message.error { background: rgba(127, 29, 29, 0.6); border: 1px solid rgba(239, 68, 68, 0.4); color: #fecaca; }
@@ -1186,9 +1266,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 hr { border: none; border-top: 1px solid rgba(51, 65, 85, 0.6); margin: 20px 0; }
 
-/* ============================================
-   LOGIN LOGO
-   ============================================ */
 .login-logo {
   display: block;
   width: 110px;
@@ -1208,14 +1285,8 @@ hr { border: none; border-top: 1px solid rgba(51, 65, 85, 0.6); margin: 20px 0; 
 body:has(.container:only-child) h1,
 body:has(.container:only-child) .subtitle { text-align: center; }
 
-/* ============================================
-   LOG ACTIONS
-   ============================================ */
 .log-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 
-/* ============================================
-   FILTER BAR
-   ============================================ */
 .filter-bar {
   display: grid;
   grid-template-columns: 1fr 1fr auto auto auto;
@@ -1241,9 +1312,6 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 
 @media (max-width: 900px) { .filter-bar { grid-template-columns: 1fr 1fr; } }
 
-/* ============================================
-   TOASTS
-   ============================================ */
 .toast-container {
   position: fixed;
   top: 80px;
@@ -1277,9 +1345,6 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 .toast-error { border-left-color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
 .toast-info { border-left-color: #38bdf8; }
 
-/* ============================================
-   MODAL
-   ============================================ */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1342,9 +1407,6 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 .modal-body { padding: 24px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 
-/* ============================================
-   PROGRESS
-   ============================================ */
 .progress-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
 .milestone { margin-bottom: 14px; }
 .milestone-head {
@@ -1372,9 +1434,6 @@ body:has(.container:only-child) .subtitle { text-align: center; }
   transition: width 0.6s ease;
 }
 
-/* ============================================
-   DISCORD LOGIN
-   ============================================ */
 .divider {
   display: flex;
   align-items: center;
@@ -1427,6 +1486,116 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 }
 
 /* ============================================
+   ANIMATED WINDSOCK — high visibility
+   ============================================ */
+.windsock {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.windsock-pole {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 3px;
+  height: 34px;
+  background: linear-gradient(180deg, #cbd5e1 0%, #64748b 100%);
+  border-radius: 2px;
+  box-shadow:
+    0 0 6px rgba(203, 213, 225, 0.7),
+    0 0 12px rgba(148, 163, 184, 0.4);
+}
+
+.windsock-body {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 42px;
+  height: 16px;
+  transform-origin: left center;
+  transform: translateY(-50%);
+  animation: windsockSway 2.4s ease-in-out infinite;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 3px;
+  border-radius: 0 10px 10px 0;
+  background: linear-gradient(
+    90deg,
+    #ff6b1a 0%,  #ff6b1a 20%,
+    #ffffff 20%, #ffffff 40%,
+    #ff6b1a 40%, #ff6b1a 60%,
+    #ffffff 60%, #ffffff 80%,
+    #ff6b1a 80%
+  );
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.4),
+    0 0 14px rgba(255, 107, 26, 0.85),
+    0 0 24px rgba(255, 107, 26, 0.5),
+    inset 0 0 6px rgba(0, 0, 0, 0.15);
+  filter: brightness(1.15) saturate(1.3);
+}
+
+.windsock-ring {
+  display: inline-block;
+  width: 1.5px;
+  height: 100%;
+  background: rgba(120, 53, 15, 0.85);
+  border-radius: 1px;
+  box-shadow: 0 0 3px rgba(120, 53, 15, 0.6);
+}
+
+.ring-1 { left: 8px; }
+.ring-2 { left: 16px; }
+.ring-3 { left: 24px; }
+.ring-4 { left: 32px; }
+
+@keyframes windsockSway {
+  0%   { transform: translateY(-50%) rotate(0deg) scaleX(1); }
+  25%  { transform: translateY(-50%) rotate(-5deg) scaleX(0.98); }
+  50%  { transform: translateY(-50%) rotate(3deg) scaleX(1.03); }
+  75%  { transform: translateY(-50%) rotate(-2deg) scaleX(0.99); }
+  100% { transform: translateY(-50%) rotate(0deg) scaleX(1); }
+}
+
+.windsock-body::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center, rgba(255, 107, 26, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+html[data-theme="light"] .windsock-pole,
+body.theme-light .windsock-pole {
+  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
+  box-shadow: 0 0 6px rgba(51, 65, 85, 0.5), 0 0 12px rgba(51, 65, 85, 0.3);
+}
+
+html[data-theme="light"] .windsock-body,
+body.theme-light .windsock-body {
+  box-shadow:
+    0 0 0 1.5px rgba(0, 0, 0, 0.15),
+    0 0 14px rgba(255, 107, 26, 0.7),
+    0 0 24px rgba(255, 107, 26, 0.4),
+    inset 0 0 6px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 480px) {
+  .windsock { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .windsock-body { animation: none; }
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 900px) {
@@ -1450,6 +1619,7 @@ body:has(.container:only-child) .subtitle { text-align: center; }
   .weather-radar::before,
   .weather-radar::after,
   .weather-radar .echo { filter: blur(28px); }
+  body::before { background-attachment: scroll, scroll; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1469,8 +1639,13 @@ body.theme-light { background: #e8eef5; color: #1e293b; }
 
 html[data-theme="light"] body::before,
 body.theme-light::before {
-  background: linear-gradient(180deg, #dbeafe 0%, #e0e7ff 50%, #f1f5f9 100%);
-  background-size: 100% 100%;
+  background-image:
+    linear-gradient(180deg, rgba(219, 234, 254, 0.85) 0%, rgba(224, 231, 255, 0.80) 50%, rgba(241, 245, 249, 0.90) 100%),
+    url('bg.jpg');
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
   animation: none !important;
   filter: none !important;
 }
@@ -1653,195 +1828,3 @@ html[data-theme="light"] .divider::before,
 html[data-theme="light"] .divider::after,
 body.theme-light .divider::before,
 body.theme-light .divider::after { background: rgba(100, 116, 139, 0.3); }
-
-/* ============================================
-   STATIC WALLPAPER BACKGROUND
-   Layers a photo under the animated gradient
-   ============================================ */
-body::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(10, 25, 41, 0.85) 0%,
-      rgba(15, 23, 42, 0.75) 30%,
-      rgba(26, 41, 66, 0.80) 60%,
-      rgba(30, 41, 59, 0.85) 100%),
-    url('bg.jpg');
-  background-size: cover, cover;
-  background-position: center center, center center;
-  background-repeat: no-repeat, no-repeat;
-  background-attachment: fixed, fixed;
-  animation: skyShift 40s ease-in-out infinite;
-}
-
-body:has(.container:only-child)::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(10, 25, 41, 0.70) 0%,
-      rgba(15, 23, 42, 0.60) 30%,
-      rgba(26, 41, 66, 0.70) 60%,
-      rgba(30, 41, 59, 0.80) 100%),
-    url('bg.jpg');
-}
-
-html[data-theme="light"] body::before,
-body.theme-light::before {
-  background-image:
-    linear-gradient(180deg,
-      rgba(219, 234, 254, 0.85) 0%,
-      rgba(224, 231, 255, 0.80) 50%,
-      rgba(241, 245, 249, 0.90) 100%),
-    url('bg.jpg');
-  animation: none !important;
-  filter: none !important;
-}
-
-@media (max-width: 640px) {
-  body::before {
-    background-attachment: scroll, scroll;
-  }
-
-/* ============================================
-   ANIMATED WINDSOCK — high visibility
-   ============================================ */
-.windsock {
-  position: relative;
-  width: 48px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.windsock-pole {
-  position: absolute;
-  left: 0;
-  top: -4px;
-  width: 3px;
-  height: 34px;
-  background: linear-gradient(180deg, #cbd5e1 0%, #64748b 100%);
-  border-radius: 2px;
-  box-shadow:
-    0 0 6px rgba(203, 213, 225, 0.7),
-    0 0 12px rgba(148, 163, 184, 0.4);
-}
-
-.windsock-body {
-  position: absolute;
-  left: 4px;
-  top: 50%;
-  width: 42px;
-  height: 16px;
-  transform-origin: left center;
-  transform: translateY(-50%);
-  animation: windsockSway 2.4s ease-in-out infinite;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 3px;
-  border-radius: 0 10px 10px 0;
-  background: linear-gradient(
-    90deg,
-    #ff6b1a 0%,  #ff6b1a 20%,
-    #ffffff 20%, #ffffff 40%,
-    #ff6b1a 40%, #ff6b1a 60%,
-    #ffffff 60%, #ffffff 80%,
-    #ff6b1a 80%
-  );
-  box-shadow:
-    0 0 0 1.5px rgba(255, 255, 255, 0.4),
-    0 0 14px rgba(255, 107, 26, 0.85),
-    0 0 24px rgba(255, 107, 26, 0.5),
-    inset 0 0 6px rgba(0, 0, 0, 0.15);
-  filter: brightness(1.15) saturate(1.3);
-}
-
-.windsock-ring {
-  display: inline-block;
-  width: 1.5px;
-  height: 100%;
-  background: rgba(120, 53, 15, 0.85);
-  border-radius: 1px;
-  box-shadow: 0 0 3px rgba(120, 53, 15, 0.6);
-}
-
-.ring-1 { left: 8px; }
-.ring-2 { left: 16px; }
-.ring-3 { left: 24px; }
-.ring-4 { left: 32px; }
-
-@keyframes windsockSway {
-  0%   { transform: translateY(-50%) rotate(0deg) scaleX(1); }
-  25%  { transform: translateY(-50%) rotate(-5deg) scaleX(0.98); }
-  50%  { transform: translateY(-50%) rotate(3deg) scaleX(1.03); }
-  75%  { transform: translateY(-50%) rotate(-2deg) scaleX(0.99); }
-  100% { transform: translateY(-50%) rotate(0deg) scaleX(1); }
-}
-
-/* Extra bright halo behind the sock */
-.windsock-body::after {
-  content: '';
-  position: absolute;
-  inset: -6px;
-  border-radius: inherit;
-  background: radial-gradient(ellipse at center, rgba(255, 107, 26, 0.35) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Light theme adjustments */
-html[data-theme="light"] .windsock-pole,
-body.theme-light .windsock-pole {
-  background: linear-gradient(180deg, #334155 0%, #0f172a 100%);
-  box-shadow:
-    0 0 6px rgba(51, 65, 85, 0.5),
-    0 0 12px rgba(51, 65, 85, 0.3);
-}
-
-html[data-theme="light"] .windsock-body,
-body.theme-light .windsock-body {
-  box-shadow:
-    0 0 0 1.5px rgba(0, 0, 0, 0.15),
-    0 0 14px rgba(255, 107, 26, 0.7),
-    0 0 24px rgba(255, 107, 26, 0.4),
-    inset 0 0 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Keep it visible on narrow screens too (only hide under 480px) */
-@media (max-width: 480px) {
-  .windsock { display: none; }
-}
-
-/* Respect reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-   /* ============================================
-   MATERIAL ACTIONS (Download + Delete)
-   ============================================ */
-.material-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-}
-
-.material-actions a {
-  color: #38bdf8;
-  text-decoration: none;
-  font-weight: 600;
-  margin-left: 0;
-}
-
-.material-actions a:hover {
-  color: #7dd3fc;
-  text-decoration: underline;
-}
-
-.material-actions .btn-small {
-  margin: 0;
-}
-
-/* Light theme */
-html[data-theme="light"] .material-actions a,
-body.theme-light .material-actions a {
-  color: #0284c7;
-}
-  
