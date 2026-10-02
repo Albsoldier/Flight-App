@@ -357,7 +357,7 @@ function setupDashboard() {
     });
   }
 
-  // Upload panel: submit handler + toggle open/close buttons
+  // Upload panel toggle
   if (canManage) {
     var uf = document.getElementById('uploadForm');
     if (uf && !uf.dataset.bound) {
@@ -384,22 +384,19 @@ function setupDashboard() {
     }
   }
 
-  // ---------- AIRCRAFT: Wire up admin add button ----------
+  // Aircraft add toggle
   var showAddBtn = document.getElementById('showAddAircraftBtn');
   if (showAddBtn && !showAddBtn.dataset.bound) {
     showAddBtn.dataset.bound = '1';
     showAddBtn.addEventListener('click', function() {
       var form = document.getElementById('addAircraftForm');
-      if (form) {
-        form.style.display = 'block';
-        this.style.display = 'none';
-      }
+      if (form) { form.style.display = 'block'; this.style.display = 'none'; }
     });
   }
-  var cancelBtn = document.getElementById('cancelAddAircraft');
-  if (cancelBtn && !cancelBtn.dataset.bound) {
-    cancelBtn.dataset.bound = '1';
-    cancelBtn.addEventListener('click', function() {
+  var cancelAcBtn = document.getElementById('cancelAddAircraft');
+  if (cancelAcBtn && !cancelAcBtn.dataset.bound) {
+    cancelAcBtn.dataset.bound = '1';
+    cancelAcBtn.addEventListener('click', function() {
       var form = document.getElementById('addAircraftForm');
       var showBtn = document.getElementById('showAddAircraftBtn');
       if (form) { form.style.display = 'none'; form.reset(); }
@@ -412,7 +409,7 @@ function setupDashboard() {
     addAcForm.addEventListener('submit', createAircraft);
   }
 
-  // ---------- NOTAMs ----------
+  // NOTAM button wiring — inline handlers in the HTML call these globals
   var notamCloseBtn = document.getElementById('notamClose');
   if (notamCloseBtn && !notamCloseBtn.dataset.bound) {
     notamCloseBtn.dataset.bound = '1';
@@ -440,7 +437,7 @@ function setupDashboard() {
     notamAddBtn.addEventListener('click', openNotamModal);
   }
 
-  // Sidebar always open for everyone
+  // NOTAM sidebar always visible for everyone
   var notamSidebar = document.getElementById('notamSidebar');
   if (notamSidebar) notamSidebar.classList.add('open');
 
@@ -1247,6 +1244,10 @@ function openNotamModal() {
   document.getElementById('notamSeverity').value = 'info';
   document.getElementById('notamExpires').value = '';
   document.getElementById('notamAddModal').style.display = 'flex';
+  setTimeout(function() {
+    var t = document.getElementById('notamTitle');
+    if (t) t.focus();
+  }, 50);
 }
 
 function closeNotamModal() {
@@ -1254,23 +1255,43 @@ function closeNotamModal() {
 }
 
 function saveNotam() {
-  var title = document.getElementById('notamTitle').value.trim();
-  var body = document.getElementById('notamBody').value.trim();
-  if (!title || !body) return showMessage('Title and body are required', 'error');
+  var titleEl = document.getElementById('notamTitle');
+  var bodyEl = document.getElementById('notamBody');
+  var severityEl = document.getElementById('notamSeverity');
+  var expiresEl = document.getElementById('notamExpires');
+
+  if (!titleEl || !bodyEl) {
+    console.error('NOTAM form fields missing from DOM');
+    return;
+  }
+
+  var title = titleEl.value.trim();
+  var body = bodyEl.value.trim();
+  if (!title || !body) {
+    showMessage('Title and body are required', 'error');
+    return;
+  }
 
   var payload = {
     title: title,
     body: body,
-    severity: document.getElementById('notamSeverity').value,
-    expires_at: document.getElementById('notamExpires').value || null
+    severity: severityEl ? severityEl.value : 'info',
+    expires_at: (expiresEl && expiresEl.value) ? expiresEl.value : null
   };
+
+  // Disable all buttons inside the modal to prevent double-submit
+  var modal = document.getElementById('notamAddModal');
+  var buttons = modal ? modal.querySelectorAll('button') : [];
+  for (var b = 0; b < buttons.length; b++) buttons[b].disabled = true;
 
   api('/api/notams', { method: 'POST', body: JSON.stringify(payload) }).then(function() {
     showMessage('NOTAM published', 'success');
     closeNotamModal();
     loadNotams();
   }).catch(function(err) {
-    showMessage(err.message, 'error');
+    showMessage(err.message || 'Failed to publish NOTAM', 'error');
+  }).then(function() {
+    for (var b = 0; b < buttons.length; b++) buttons[b].disabled = false;
   });
 }
 
@@ -1283,3 +1304,10 @@ function deleteNotam(id) {
     showMessage(err.message, 'error');
   });
 }
+
+// Expose NOTAM functions globally so inline onclick handlers work
+window.openNotamModal = openNotamModal;
+window.closeNotamModal = closeNotamModal;
+window.saveNotam = saveNotam;
+window.deleteNotam = deleteNotam;
+window.loadNotams = loadNotams;
