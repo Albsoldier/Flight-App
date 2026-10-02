@@ -920,15 +920,34 @@ function loadMaterials() {
 
     for (var i = 0; i < data.materials.length; i++) {
       var m = data.materials[i];
-      html += '<div class="list-item">';
-      html += '<strong>' + escapeHtml(m.title) + '</strong>';
-      html += ' <span class="badge">' + escapeHtml(m.category || 'General') + '</span>';
-      html += '<span class="material-actions">';
-      html += '<a href="/api/materials/' + m.id + '/download" target="_blank">Download</a>';
-      if (isAdmin) {
-        html += '<button class="btn-danger btn-small" onclick="deleteMaterial(' + m.id + ', \'' + escapeHtml(m.title).replace(/'/g, "\\'") + '\')">Delete</button>';
+      var icon = getFileIcon(m.mime_type, m.file_name);
+      var size = formatFileSize(m.file_size);
+      var category = m.category || 'General';
+
+      html += '<div class="material-card">';
+      html += '  <div class="material-icon">' + icon + '</div>';
+      html += '  <div class="material-body">';
+      html += '    <div class="material-header">';
+      html += '      <div class="material-title">' + escapeHtml(m.title) + '</div>';
+      html += '      <span class="material-category">' + escapeHtml(category) + '</span>';
+      html += '    </div>';
+      if (m.description) {
+        html += '    <div class="material-description">' + escapeHtml(m.description) + '</div>';
       }
-      html += '</span>';
+      html += '    <div class="material-meta">';
+      html += '      <span>' + size + '</span>';
+      if (m.uploader_name) {
+        html += '      <span>·</span>';
+        html += '      <span>by ' + escapeHtml(m.uploader_name) + '</span>';
+      }
+      html += '    </div>';
+      html += '    <div class="material-actions">';
+      html += '      <a href="/api/materials/' + m.id + '/download" target="_blank" class="btn-small btn-download">Download</a>';
+      if (isAdmin) {
+        html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + escapeHtml(m.title).replace(/'/g, "\\'") + '\')">Delete</button>';
+      }
+      html += '    </div>';
+      html += '  </div>';
       html += '</div>';
     }
 
@@ -936,6 +955,31 @@ function loadMaterials() {
   }).catch(function(err) {
     document.getElementById('materialsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
+}
+
+function getFileIcon(mime, filename) {
+  if (!mime) mime = '';
+  var ext = (filename || '').toLowerCase().split('.').pop();
+
+  if (mime.indexOf('pdf') !== -1 || ext === 'pdf') return '📄';
+  if (mime.indexOf('word') !== -1 || ext === 'doc' || ext === 'docx') return '📝';
+  if (mime.indexOf('powerpoint') !== -1 || ext === 'ppt' || ext === 'pptx') return '📊';
+  if (mime.indexOf('excel') !== -1 || ext === 'xls' || ext === 'xlsx') return '📈';
+  if (mime.indexOf('zip') !== -1 || ext === 'zip' || ext === 'rar') return '🗜️';
+  if (mime.indexOf('image') !== -1) return '🖼️';
+  if (mime.indexOf('video') !== -1) return '🎬';
+  if (mime.indexOf('audio') !== -1) return '🎵';
+  if (mime.indexOf('text') !== -1 || ext === 'txt') return '📃';
+  return '📁';
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '—';
+  var kb = bytes / 1024;
+  if (kb < 1024) return kb.toFixed(1) + ' KB';
+  var mb = kb / 1024;
+  if (mb < 1024) return mb.toFixed(1) + ' MB';
+  return (mb / 1024).toFixed(2) + ' GB';
 }
 
 function deleteMaterial(id, title) {
@@ -950,23 +994,6 @@ function deleteMaterial(id, title) {
     showMessage(err.message, 'error');
   });
 }
-
-function uploadMaterial(e) {
-  e.preventDefault();
-  var file = document.getElementById('matFile').files[0];
-  if (!file) return;
-  var formData = new FormData();
-  formData.append('file', file);
-  formData.append('title', document.getElementById('matTitle').value);
-  formData.append('description', document.getElementById('matDescription').value);
-  formData.append('category', document.getElementById('matCategory').value || 'General');
-  api('/api/materials', { method: 'POST', body: formData }).then(function() {
-    showMessage('Material uploaded', 'success');
-    e.target.reset();
-    loadMaterials();
-  }).catch(function(err) { showMessage(err.message, 'error'); });
-}
-
 // ============================================
 // AIRCRAFT RENTALS
 // ============================================
