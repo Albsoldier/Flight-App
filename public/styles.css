@@ -1813,4 +1813,35 @@ body.theme-light .windsock-body {
 
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
+   /* ============================================
+   MATERIAL ACTIONS (Download + Delete)
+   ============================================ */
+.material-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.material-actions a {
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: 0;
+}
+
+.material-actions a:hover {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+
+.material-actions .btn-small {
+  margin: 0;
+}
+
+/* Light theme */
+html[data-theme="light"] .material-actions a,
+body.theme-light .material-actions a {
+  color: #0284c7;
+}
   
