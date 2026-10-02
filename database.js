@@ -84,7 +84,6 @@ async function initSchema() {
     )
   `);
 
-  // Aircraft rentals table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS aircraft (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,7 +99,21 @@ async function initSchema() {
     )
   `);
 
-  // Safe migrations for existing installs
+  // NOTAMs table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notams (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      severity TEXT DEFAULT 'info' CHECK(severity IN ('info', 'caution', 'warning', 'critical')),
+      expires_at DATETIME,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_by INTEGER,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_avatar TEXT"); } catch(e) {}
