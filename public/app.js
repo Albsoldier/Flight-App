@@ -8,6 +8,7 @@ var utcClockInterval = null;
 var allLogsCache = [];
 var socket = null;
 var aircraftCache = [];
+var notamCache = [];
 
 function api(path, options) {
   options = options || {};
@@ -411,6 +412,44 @@ function setupDashboard() {
     addAcForm.addEventListener('submit', createAircraft);
   }
 
+  // ---------- NOTAMs ----------
+  var notamCloseBtn = document.getElementById('notamClose');
+  if (notamCloseBtn && !notamCloseBtn.dataset.bound) {
+    notamCloseBtn.dataset.bound = '1';
+    notamCloseBtn.addEventListener('click', function() {
+      var sb = document.getElementById('notamSidebar');
+      if (sb) sb.classList.remove('open');
+    });
+  }
+  var notamToggleBtn = document.getElementById('notamToggle');
+  if (notamToggleBtn && !notamToggleBtn.dataset.bound) {
+    notamToggleBtn.dataset.bound = '1';
+    notamToggleBtn.addEventListener('click', function() {
+      var sb = document.getElementById('notamSidebar');
+      if (sb) sb.classList.toggle('open');
+    });
+  }
+  var notamRefreshBtn = document.getElementById('notamRefresh');
+  if (notamRefreshBtn && !notamRefreshBtn.dataset.bound) {
+    notamRefreshBtn.dataset.bound = '1';
+    notamRefreshBtn.addEventListener('click', loadNotams);
+  }
+  var notamAddBtn = document.getElementById('notamAddBtn');
+  if (notamAddBtn && !notamAddBtn.dataset.bound) {
+    notamAddBtn.dataset.bound = '1';
+    notamAddBtn.addEventListener('click', openNotamModal);
+  }
+
+  // Sidebar always open for everyone
+  var notamSidebar = document.getElementById('notamSidebar');
+  if (notamSidebar) notamSidebar.classList.add('open');
+
+  // Only admins see the "+ Add" button
+  if (isAdmin) {
+    var na = document.getElementById('notamAddBtn');
+    if (na) na.style.display = 'inline-block';
+  }
+
   // Initial loads
   if (canManage) loadStats();
   if (isAdmin) loadOnlineUsers();
@@ -419,6 +458,7 @@ function setupDashboard() {
   loadMaterials();
   loadMyLog();
   loadAircraft();
+  loadNotams();
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
@@ -1151,4 +1191,95 @@ function deleteAircraft(id, tail) {
     showMessage('Aircraft "' + tail + '" deleted', 'success');
     loadAircraft();
   }).catch(function(err) { showMessage(err.message, 'error'); });
+}
+
+// ============================================
+// NOTAMS
+// ============================================
+function loadNotams() {
+  api('/api/notams').then(function(data) {
+    notamCache = data.notams || [];
+    renderNotams();
+  }).catch(function(err) {
+    var el = document.getElementById('notamList');
+    if (el) el.innerHTML = '<p class="notam-empty">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderNotams() {
+  var el = document.getElementById('notamList');
+  if (!el) return;
+
+  if (notamCache.length === 0) {
+    el.innerHTML = '<p class="notam-empty">No active NOTAMs.</p>';
+    return;
+  }
+
+  var isAdmin = currentUser && currentUser.role === 'admin';
+  var html = '';
+
+  for (var i = 0; i < notamCache.length; i++) {
+    var n = notamCache[i];
+    var severityClass = 'notam-' + (n.severity || 'info');
+    var expires = n.expires_at ? 'Expires ' + fmtDate(n.expires_at) : 'Permanent';
+    html += '<div class="notam-item ' + severityClass + '">';
+    html += '  <div class="notam-item-header">';
+    html += '    <span class="notam-severity">' + (n.severity || 'info').toUpperCase() + '</span>';
+    html += '    <span class="notam-time">' + fmtDate(n.created_at) + '</span>';
+    html += '  </div>';
+    html += '  <div class="notam-item-title">' + escapeHtml(n.title) + '</div>';
+    html += '  <div class="notam-item-body">' + escapeHtml(n.body) + '</div>';
+    html += '  <div class="notam-item-footer">';
+    html += '    <span>' + expires + '</span>';
+    if (isAdmin) {
+      html += '    <button class="btn-danger btn-small" onclick="deleteNotam(' + n.id + ')">Delete</button>';
+    }
+    html += '  </div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function openNotamModal() {
+  document.getElementById('notamTitle').value = '';
+  document.getElementById('notamBody').value = '';
+  document.getElementById('notamSeverity').value = 'info';
+  document.getElementById('notamExpires').value = '';
+  document.getElementById('notamAddModal').style.display = 'flex';
+}
+
+function closeNotamModal() {
+  document.getElementById('notamAddModal').style.display = 'none';
+}
+
+function saveNotam() {
+  var title = document.getElementById('notamTitle').value.trim();
+  var body = document.getElementById('notamBody').value.trim();
+  if (!title || !body) return showMessage('Title and body are required', 'error');
+
+  var payload = {
+    title: title,
+    body: body,
+    severity: document.getElementById('notamSeverity').value,
+    expires_at: document.getElementById('notamExpires').value || null
+  };
+
+  api('/api/notams', { method: 'POST', body: JSON.stringify(payload) }).then(function() {
+    showMessage('NOTAM published', 'success');
+    closeNotamModal();
+    loadNotams();
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
+  });
+}
+
+function deleteNotam(id) {
+  if (!confirm('Delete this NOTAM?')) return;
+  api('/api/notams/' + id, { method: 'DELETE' }).then(function() {
+    showMessage('NOTAM deleted', 'success');
+    loadNotams();
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
+  });
 }
