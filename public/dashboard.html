@@ -242,6 +242,32 @@
       <div id="allLogsList"></div>
     </section>
 
+        <!-- FLIGHT PLANNER / ROUTE GENERATOR -->
+    <section class="card" id="section-planner">
+      <h2>🗺️ Flight Route Planner</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Select departure and arrival waypoints to generate a route through the San Andreas airway network.
+      </p>
+
+      <div class="planner-controls">
+        <div class="field">
+          <label>From (Departure)</label>
+          <select id="routeFrom">
+            <option value="">— Select waypoint —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>To (Arrival)</label>
+          <select id="routeTo">
+            <option value="">— Select waypoint —</option>
+          </select>
+        </div>
+        <button id="findRouteBtn">Find Route</button>
+      </div>
+
+      <div id="routeResult" class="route-result" style="display:none;"></div>
+    </section>
+
     <!-- AIRCRAFT RENTALS -->
     <section class="card" id="section-aircraft">
       <h2>✈️ Aircraft Rentals</h2>
