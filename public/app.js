@@ -408,7 +408,13 @@ function setupDashboard() {
     addAcForm.dataset.bound = '1';
     addAcForm.addEventListener('submit', createAircraft);
   }
-
+  // Flight planner
+  var findRouteBtn = document.getElementById('findRouteBtn');
+  if (findRouteBtn && !findRouteBtn.dataset.bound) {
+    findRouteBtn.dataset.bound = '1';
+    findRouteBtn.addEventListener('click', findRoute);
+  }
+  
   // NOTAM button wiring — inline handlers in the HTML call these globals
   var notamCloseBtn = document.getElementById('notamClose');
   if (notamCloseBtn && !notamCloseBtn.dataset.bound) {
@@ -1312,3 +1318,71 @@ window.closeNotamModal = closeNotamModal;
 window.saveNotam = saveNotam;
 window.deleteNotam = deleteNotam;
 window.loadNotams = loadNotams;
+// ============================================
+// FLIGHT ROUTE PLANNER
+// ============================================
+function loadWaypoints() {
+  var fromSelect = document.getElementById('routeFrom');
+  var toSelect = document.getElementById('routeTo');
+  if (!fromSelect || !toSelect) return;
+
+  api('/api/routes/waypoints').then(function(data) {
+    var waypoints = data.waypoints || [];
+    var optionsHtml = '<option value="">— Select waypoint —</option>';
+    for (var i = 0; i < waypoints.length; i++) {
+      optionsHtml += '<option value="' + waypoints[i].name + '">' + waypoints[i].name + '</option>';
+    }
+    fromSelect.innerHTML = optionsHtml;
+    toSelect.innerHTML = optionsHtml;
+  }).catch(function(err) {
+    var result = document.getElementById('routeResult');
+    if (result) {
+      result.style.display = 'block';
+      result.innerHTML = '<p class="muted">Could not load waypoints: ' + escapeHtml(err.message) + '</p>';
+    }
+  });
+}
+
+function findRoute() {
+  var from = document.getElementById('routeFrom').value;
+  var to = document.getElementById('routeTo').value;
+  var resultEl = document.getElementById('routeResult');
+
+  if (!from || !to) {
+    showMessage('Please select both departure and arrival waypoints', 'error');
+    return;
+  }
+  if (from === to) {
+    showMessage('Departure and arrival must be different', 'error');
+    return;
+  }
+
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<p class="muted">Calculating route...</p>';
+
+  api('/api/routes/find', {
+    method: 'POST',
+    body: JSON.stringify({ from: from, to: to })
+  }).then(function(data) {
+    var path = data.path || [];
+    var routeStr = path.join(' → ');
+
+    var html = '';
+    html += '<div class="route-header">';
+    html += '  <span class="route-badge">' + data.waypoint_count + ' waypoints</span>';
+    html += '  <span class="route-badge route-distance">' + data.distance_nm + ' NM</span>';
+    html += '</div>';
+    html += '<div class="route-line">';
+    for (var i = 0; i < path.length; i++) {
+      var isEndpoint = (i === 0 || i === path.length - 1);
+      html += '<span class="route-waypoint' + (isEndpoint ? ' route-endpoint' : '') + '">' + escapeHtml(path[i]) + '</span>';
+      if (i < path.length - 1) html += '<span class="route-arrow">→</span>';
+    }
+    html += '</div>';
+    html += '<div class="route-text"><strong>Route:</strong> ' + escapeHtml(routeStr) + '</div>';
+
+    resultEl.innerHTML = html;
+  }).catch(function(err) {
+    resultEl.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
