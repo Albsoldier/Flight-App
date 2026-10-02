@@ -2,21 +2,13 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const uuid = require('uuid');
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
-
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'aircraft');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) { cb(null, UPLOAD_DIR); },
-  filename: function(req, file, cb) { cb(null, uuid.v4() + path.extname(file.originalname)); }
-});
+const r2 = require('../r2-storage');
 
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: function(req, file, cb) {
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -27,7 +19,7 @@ const upload = multer({
 
 router.use(authMiddleware.isAuthenticated);
 
-// LIST ALL AIRCRAFT — everyone
+// LIST ALL
 router.get('/', async function(req, res) {
   try {
     const result = await database.db.execute(
@@ -40,7 +32,7 @@ router.get('/', async function(req, res) {
   }
 });
 
-// GET SINGLE — everyone
+// GET SINGLE
 router.get('/:id', async function(req, res) {
   try {
     const result = await database.db.execute({
@@ -55,7 +47,7 @@ router.get('/:id', async function(req, res) {
   }
 });
 
-// SERVE PHOTO — everyone
+// SERVE PHOTO — redirects to signed R2 URL
 router.get('/:id/photo', async function(req, res) {
   try {
     const result = await database.db.execute({
@@ -64,15 +56,16 @@ router.get('/:id/photo', async function(req, res) {
     });
     const row = result.rows[0];
     if (!row || !row.photo_filename) return res.status(404).send('No photo');
-    const filePath = path.join(UPLOAD_DIR, row.photo_filename);
-    if (!fs.existsSync(filePath)) return res.status(404).send('File missing');
-    res.sendFile(filePath);
+
+    const signedUrl = await r2.getSignedDownloadUrl(row.photo_filename, 3600);
+    res.redirect(signedUrl);
   } catch (err) {
+    console.error(err);
     res.status(500).send('Server error');
   }
 });
 
-// CREATE — admin only
+// CREATE
 router.post('/', authMiddleware.isAdmin, upload.single('photo'), async function(req, res) {
   try {
     const tailNumber = (req.body.tail_number || '').trim().toUpperCase();
@@ -82,20 +75,22 @@ router.post('/', authMiddleware.isAdmin, upload.single('photo'), async function(
     const isAvailable = req.body.is_available === 'false' ? 0 : 1;
 
     if (!tailNumber || !model) {
-      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: 'Tail number and model are required' });
     }
 
-    const photoFilename = req.file ? req.file.filename : null;
+    let photoKey = null;
+    if (req.file) {
+      photoKey = 'aircraft/' + uuid.v4() + path.extname(req.file.originalname);
+      await r2.uploadFile(photoKey, req.file.buffer, req.file.mimetype);
+    }
 
     const result = await database.db.execute({
       sql: 'INSERT INTO aircraft (tail_number, model, description, hourly_rate, photo_filename, is_available, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [tailNumber, model, description, hourlyRate, photoFilename, isAvailable, req.session.userId]
+      args: [tailNumber, model, description, hourlyRate, photoKey, isAvailable, req.session.userId]
     });
 
     res.json({ success: true, aircraftId: Number(result.lastInsertRowid) });
   } catch (err) {
-    if (req.file) fs.unlinkSync(req.file.path);
     if (err.message && err.message.indexOf('UNIQUE') !== -1) {
       return res.status(400).json({ error: 'Tail number already exists' });
     }
@@ -104,7 +99,7 @@ router.post('/', authMiddleware.isAdmin, upload.single('photo'), async function(
   }
 });
 
-// UPDATE — admin only
+// UPDATE
 router.put('/:id', authMiddleware.isAdmin, upload.single('photo'), async function(req, res) {
   try {
     const id = req.params.id;
@@ -112,41 +107,26 @@ router.put('/:id', authMiddleware.isAdmin, upload.single('photo'), async functio
       sql: 'SELECT * FROM aircraft WHERE id = ?',
       args: [id]
     });
-    if (!existing.rows[0]) {
-      if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(404).json({ error: 'Aircraft not found' });
-    }
+    if (!existing.rows[0]) return res.status(404).json({ error: 'Aircraft not found' });
 
     const updates = [];
     const args = [];
 
-    if (req.body.tail_number !== undefined) {
-      updates.push('tail_number = ?');
-      args.push(req.body.tail_number.trim().toUpperCase());
-    }
-    if (req.body.model !== undefined) {
-      updates.push('model = ?');
-      args.push(req.body.model.trim());
-    }
-    if (req.body.description !== undefined) {
-      updates.push('description = ?');
-      args.push(req.body.description);
-    }
-    if (req.body.hourly_rate !== undefined) {
-      updates.push('hourly_rate = ?');
-      args.push(parseFloat(req.body.hourly_rate) || 1500);
-    }
-    if (req.body.is_available !== undefined) {
-      updates.push('is_available = ?');
-      args.push(req.body.is_available === 'false' ? 0 : 1);
-    }
+    if (req.body.tail_number !== undefined) { updates.push('tail_number = ?'); args.push(req.body.tail_number.trim().toUpperCase()); }
+    if (req.body.model !== undefined) { updates.push('model = ?'); args.push(req.body.model.trim()); }
+    if (req.body.description !== undefined) { updates.push('description = ?'); args.push(req.body.description); }
+    if (req.body.hourly_rate !== undefined) { updates.push('hourly_rate = ?'); args.push(parseFloat(req.body.hourly_rate) || 1500); }
+    if (req.body.is_available !== undefined) { updates.push('is_available = ?'); args.push(req.body.is_available === 'false' ? 0 : 1); }
+
     if (req.file) {
+      // Delete old photo from R2
       if (existing.rows[0].photo_filename) {
-        const oldPath = path.join(UPLOAD_DIR, existing.rows[0].photo_filename);
-        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        try { await r2.deleteFile(existing.rows[0].photo_filename); } catch (e) { /* ignore */ }
       }
+      const photoKey = 'aircraft/' + uuid.v4() + path.extname(req.file.originalname);
+      await r2.uploadFile(photoKey, req.file.buffer, req.file.mimetype);
       updates.push('photo_filename = ?');
-      args.push(req.file.filename);
+      args.push(photoKey);
     }
 
     if (updates.length === 0) return res.status(400).json({ error: 'No updates' });
@@ -158,13 +138,12 @@ router.put('/:id', authMiddleware.isAdmin, upload.single('photo'), async functio
     });
     res.json({ success: true });
   } catch (err) {
-    if (req.file) fs.unlinkSync(req.file.path);
     console.error(err);
     res.status(500).json({ error: 'Failed to update aircraft' });
   }
 });
 
-// DELETE — admin only
+// DELETE
 router.delete('/:id', authMiddleware.isAdmin, async function(req, res) {
   try {
     const result = await database.db.execute({
@@ -175,8 +154,7 @@ router.delete('/:id', authMiddleware.isAdmin, async function(req, res) {
     if (!row) return res.status(404).json({ error: 'Aircraft not found' });
 
     if (row.photo_filename) {
-      const photoPath = path.join(UPLOAD_DIR, row.photo_filename);
-      if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+      try { await r2.deleteFile(row.photo_filename); } catch (e) { /* ignore */ }
     }
 
     await database.db.execute({ sql: 'DELETE FROM aircraft WHERE id = ?', args: [req.params.id] });
