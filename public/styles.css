@@ -1,4 +1,5 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 /* ============================================
    CERTIFICATE CHIPS
    ============================================ */
@@ -77,6 +78,7 @@ html[data-theme="light"] .cert-chip-name,
 body.theme-light .cert-chip-name {
   color: #475569;
 }
+
 /* ============================================
    FLIGHT PLANNER
    ============================================ */
@@ -184,7 +186,6 @@ body.theme-light .cert-chip-name {
   margin-right: 6px;
 }
 
-/* Light theme */
 html[data-theme="light"] .route-result,
 body.theme-light .route-result {
   background: rgba(241, 245, 249, 0.9);
@@ -201,6 +202,7 @@ html[data-theme="light"] .route-text,
 body.theme-light .route-text {
   color: #475569;
 }
+
 /* ============================================
    NOTAM SIDEBAR
    ============================================ */
@@ -674,6 +676,288 @@ body.theme-light .material-category {
 
 @media (max-width: 600px) {
   .aircraft-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================
+   USERS — CARD GRID
+   ============================================ */
+.user-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.user-card {
+  position: relative;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.user-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.6), transparent);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.user-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 8px 32px rgba(56, 189, 248, 0.2);
+}
+
+.user-card:hover::before { opacity: 1; }
+
+.user-card-admin::before {
+  background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.8), transparent);
+}
+.user-card-instructor::before {
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.8), transparent);
+}
+.user-card-student::before {
+  background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent);
+}
+
+.user-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.user-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.4);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
+}
+
+.user-card:hover .user-avatar {
+  transform: scale(1.06) rotate(-3deg);
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.9);
+}
+
+.avatar-admin {
+  background: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+}
+.avatar-instructor {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+}
+.avatar-student {
+  background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+}
+
+.user-card-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-card-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: #e2e8f0;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-card-meta {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: #64748b;
+  margin-top: 3px;
+  letter-spacing: 0.02em;
+}
+
+.user-status-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.user-status-dot.active {
+  background: #10b981;
+  color: #10b981;
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+.user-status-dot.inactive {
+  background: #64748b;
+  color: #64748b;
+  box-shadow: none;
+}
+
+.user-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.user-hours {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.user-hours-num {
+  font-family: 'Courier New', monospace;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+  letter-spacing: 0.02em;
+}
+
+.user-hours-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.user-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.user-action {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  background: rgba(51, 65, 85, 0.6);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 0;
+  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
+  box-shadow: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-action:hover {
+  transform: translateY(-1px);
+  filter: none;
+}
+
+.user-action:active { transform: translateY(0); }
+
+.user-action-progress:hover {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #7dd3fc;
+}
+
+.user-action-edit:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+}
+
+.user-action-certs:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.6);
+  color: #c4b5fd;
+}
+
+.user-action-delete {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+}
+
+.user-action-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: #f87171;
+}
+
+.user-action-disabled {
+  flex: 1;
+  text-align: center;
+  padding: 7px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px dashed rgba(100, 116, 139, 0.4);
+  border-radius: 6px;
+}
+
+html[data-theme="light"] .user-card,
+body.theme-light .user-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+html[data-theme="light"] .user-card-name,
+body.theme-light .user-card-name { color: #1e293b; }
+
+html[data-theme="light"] .user-card-meta,
+body.theme-light .user-card-meta { color: #64748b; }
+
+html[data-theme="light"] .user-card-body,
+body.theme-light .user-card-body {
+  border-top-color: rgba(203, 213, 225, 0.8);
+  border-bottom-color: rgba(203, 213, 225, 0.8);
+}
+
+html[data-theme="light"] .user-hours-num,
+body.theme-light .user-hours-num {
+  color: #0284c7;
+  text-shadow: none;
+}
+
+html[data-theme="light"] .user-action,
+body.theme-light .user-action {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #334155;
+}
+
+html[data-theme="light"] .user-avatar,
+body.theme-light .user-avatar {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.5);
+}
+
+@media (max-width: 640px) {
+  .user-grid { grid-template-columns: 1fr; }
+  .user-action { font-size: 0.72rem; padding: 6px 8px; }
 }
 
 /* ============================================
@@ -1872,7 +2156,7 @@ body:has(.container:only-child) .subtitle { text-align: center; }
 }
 
 /* ============================================
-   ANIMATED WINDSOCK — high visibility
+   ANIMATED WINDSOCK
    ============================================ */
 .windsock {
   position: relative;
@@ -2214,6 +2498,7 @@ html[data-theme="light"] .divider::before,
 html[data-theme="light"] .divider::after,
 body.theme-light .divider::before,
 body.theme-light .divider::after { background: rgba(100, 116, 139, 0.3); }
+
 /* ============================================
    GTAW LOGIN BUTTON
    ============================================ */
