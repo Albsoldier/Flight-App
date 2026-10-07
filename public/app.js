@@ -655,18 +655,17 @@ function loadUsers() {
               '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
               '<td>' + (u.total_hours || 0).toFixed(1) + '</td>' +
               '<td>' + (u.is_active ? '✅ Active' : '❌ Inactive') + '</td>';
-      if (isAdmin) {
+            if (isAdmin) {
         html += '<td>';
         if (u.role !== 'admin') {
           html += '<button class="btn-secondary btn-small" onclick="openEditUserModal(' + u.id + ')">Edit</button> ';
+          html += '<button class="btn-secondary btn-small" onclick="openCertsModal(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, "\\'") + '\')">Certs</button> ';
           html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + u.username.replace(/'/g, "\\'") + '\')">Delete</button>';
         } else {
           html += '<span class="muted">—</span>';
         }
         html += '</td>';
       }
-      html += '</tr>';
-    }
     html += '</tbody></table>';
     document.getElementById('usersList').innerHTML = html;
   }).catch(function(err) {
@@ -1644,3 +1643,127 @@ function saveUserEdit() {
 window.openEditUserModal = openEditUserModal;
 window.closeEditUserModal = closeEditUserModal;
 window.saveUserEdit = saveUserEdit;
+// ============================================
+// CERTIFICATES
+// ============================================
+var certCatalogCache = null;
+var certsCurrentUserId = null;
+
+function loadCertCatalog() {
+  if (certCatalogCache) return Promise.resolve(certCatalogCache);
+  return api('/api/certificates/catalog').then(function(data) {
+    certCatalogCache = data.certificates || [];
+    return certCatalogCache;
+  });
+}
+
+function openCertsModal(userId, userName) {
+  certsCurrentUserId = userId;
+
+  document.getElementById('certsUserId').value = userId;
+  document.getElementById('certsUserHeading').textContent = userName + ' (#' + userId + ')';
+  document.getElementById('certsError').style.display = 'none';
+  document.getElementById('certsModal').style.display = 'flex';
+
+  // Load catalog + user's current certs in parallel
+  Promise.all([
+    loadCertCatalog(),
+    api('/api/certificates/user/' + userId)
+  ]).then(function(results) {
+    var catalog = results[0];
+    var held = results[1].certificates || [];
+
+    renderUserCerts(held, catalog);
+    renderCertDropdown(catalog, held);
+  }).catch(function(err) {
+    document.getElementById('certsCurrentList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderUserCerts(held, catalog) {
+  var el = document.getElementById('certsCurrentList');
+  if (held.length === 0) {
+    el.innerHTML = '<p class="muted">No certificates issued yet.</p>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < held.length; i++) {
+    var c = held[i];
+    html += '<div class="cert-chip">';
+    html += '<span class="cert-chip-code">' + escapeHtml(c.short) + '</span>';
+    html += '<span class="cert-chip-name">' + escapeHtml(c.name) + '</span>';
+    html += '<button class="cert-chip-remove" title="Revoke" onclick="revokeCert(' + c.id + ', \'' + escapeHtml(c.code) + '\')">×</button>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+}
+
+function renderCertDropdown(catalog, held) {
+  var select = document.getElementById('certsAddSelect');
+  var heldCodes = held.map(function(c) { return c.code; });
+
+  var html = '<option value="">— Select certificate —</option>';
+  for (var i = 0; i < catalog.length; i++) {
+    var c = catalog[i];
+    if (heldCodes.indexOf(c.code) !== -1) continue; // skip already-held
+    html += '<option value="' + c.code + '">' + c.short + ' — ' + escapeHtml(c.name) + '</option>';
+  }
+  select.innerHTML = html;
+
+  // Wire the Add button once
+  var addBtn = document.getElementById('certsAddBtn');
+  if (addBtn && !addBtn.dataset.bound) {
+    addBtn.dataset.bound = '1';
+    addBtn.addEventListener('click', function() {
+      var code = select.value;
+      var errEl = document.getElementById('certsError');
+
+      if (!code) {
+        errEl.textContent = 'Please select a certificate';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      addBtn.disabled = true;
+      api('/api/certificates/user/' + certsCurrentUserId, {
+        method: 'POST',
+        body: JSON.stringify({ code: code })
+      }).then(function() {
+        errEl.style.display = 'none';
+        showMessage('Certificate issued', 'success');
+        // Reload the modal
+        openCertsModal(certsCurrentUserId, document.getElementById('certsUserHeading').textContent.split(' (')[0]);
+      }).catch(function(err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }).then(function() {
+        addBtn.disabled = false;
+      });
+    });
+  }
+}
+
+function revokeCert(certId, code) {
+  if (!confirm('Revoke this certificate?')) return;
+
+  api('/api/certificates/user/' + certsCurrentUserId + '/' + code, {
+    method: 'DELETE'
+  }).then(function() {
+    showMessage('Certificate revoked', 'success');
+    var heading = document.getElementById('certsUserHeading').textContent;
+    var userName = heading.split(' (')[0];
+    openCertsModal(certsCurrentUserId, userName);
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
+  });
+}
+
+function closeCertsModal() {
+  document.getElementById('certsModal').style.display = 'none';
+  certsCurrentUserId = null;
+}
+
+window.openCertsModal = openCertsModal;
+window.closeCertsModal = closeCertsModal;
+window.revokeCert = revokeCert;
