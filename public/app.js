@@ -650,22 +650,26 @@ function loadUsers() {
                (isAdmin ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
-      var nameLink = '<a href="#" onclick="showProgress(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, "\\'") + '\'); return false;">' + escapeHtml(u.full_name) + '</a>';
+      var safeName = escapeHtml(u.full_name).replace(/'/g, '&#39;');
+      var safeUsername = escapeHtml(u.username).replace(/'/g, '&#39;');
+      var nameLink = '<a href="#" onclick="showProgress(' + u.id + ', \'' + safeName + '\'); return false;">' + escapeHtml(u.full_name) + '</a>';
       html += '<tr><td>' + u.id + '</td><td>' + escapeHtml(u.username) + '</td><td>' + nameLink + '</td>' +
               '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
               '<td>' + (u.total_hours || 0).toFixed(1) + '</td>' +
               '<td>' + (u.is_active ? '✅ Active' : '❌ Inactive') + '</td>';
-            if (isAdmin) {
+      if (isAdmin) {
         html += '<td>';
         if (u.role !== 'admin') {
           html += '<button class="btn-secondary btn-small" onclick="openEditUserModal(' + u.id + ')">Edit</button> ';
-          html += '<button class="btn-secondary btn-small" onclick="openCertsModal(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, "\\'") + '\')">Certs</button> ';
-          html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + u.username.replace(/'/g, "\\'") + '\')">Delete</button>';
+          html += '<button class="btn-secondary btn-small" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')">Certs</button> ';
+          html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')">Delete</button>';
         } else {
           html += '<span class="muted">—</span>';
         }
         html += '</td>';
       }
+      html += '</tr>';
+    }
     html += '</tbody></table>';
     document.getElementById('usersList').innerHTML = html;
   }).catch(function(err) {
@@ -1055,7 +1059,8 @@ function loadMaterials() {
       html += '    <div class="material-actions">';
       html += '      <a href="/api/materials/' + m.id + '/download" target="_blank" class="btn-small btn-download">Download</a>';
       if (isAdmin) {
-        html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + escapeHtml(m.title).replace(/'/g, "\\'") + '\')">Delete</button>';
+        var safeTitle = escapeHtml(m.title).replace(/'/g, '&#39;');
+        html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + safeTitle + '\')">Delete</button>';
       }
       html += '    </div>';
       html += '  </div>';
@@ -1173,9 +1178,10 @@ function renderAircraft() {
     if (ac.description) html += '<div class="aircraft-description">' + escapeHtml(ac.description) + '</div>';
     html += '<div class="aircraft-rate">$' + Number(ac.hourly_rate).toLocaleString() + ' <span>/ hour</span></div>';
     if (isAdmin) {
+      var safeTail = escapeHtml(ac.tail_number).replace(/'/g, '&#39;');
       html += '<div class="aircraft-actions">';
       html += '<button class="btn-secondary btn-small" onclick="editAircraft(' + ac.id + ')">Edit</button> ';
-      html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + escapeHtml(ac.tail_number).replace(/'/g, "\\'") + '\')">Delete</button>';
+      html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + safeTail + '\')">Delete</button>';
       html += '</div>';
     }
     html += '</div></div>';
@@ -1666,7 +1672,6 @@ function openCertsModal(userId, userName) {
   document.getElementById('certsError').style.display = 'none';
   document.getElementById('certsModal').style.display = 'flex';
 
-  // Load catalog + user's current certs in parallel
   Promise.all([
     loadCertCatalog(),
     api('/api/certificates/user/' + userId)
@@ -1677,7 +1682,8 @@ function openCertsModal(userId, userName) {
     renderUserCerts(held, catalog);
     renderCertDropdown(catalog, held);
   }).catch(function(err) {
-    document.getElementById('certsCurrentList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+    document.getElementById('certsCurrentList').innerHTML =
+      '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
@@ -1694,7 +1700,7 @@ function renderUserCerts(held, catalog) {
     html += '<div class="cert-chip">';
     html += '<span class="cert-chip-code">' + escapeHtml(c.short) + '</span>';
     html += '<span class="cert-chip-name">' + escapeHtml(c.name) + '</span>';
-    html += '<button class="cert-chip-remove" title="Revoke" onclick="revokeCert(' + c.id + ', \'' + escapeHtml(c.code) + '\')">×</button>';
+    html += '<button class="cert-chip-remove" title="Revoke" onclick="revokeCert(' + c.id + ', \'' + escapeHtml(c.code) + '\')">&times;</button>';
     html += '</div>';
   }
   el.innerHTML = html;
@@ -1702,17 +1708,17 @@ function renderUserCerts(held, catalog) {
 
 function renderCertDropdown(catalog, held) {
   var select = document.getElementById('certsAddSelect');
-  var heldCodes = held.map(function(c) { return c.code; });
+  var heldCodes = [];
+  for (var h = 0; h < held.length; h++) heldCodes.push(held[h].code);
 
   var html = '<option value="">— Select certificate —</option>';
   for (var i = 0; i < catalog.length; i++) {
     var c = catalog[i];
-    if (heldCodes.indexOf(c.code) !== -1) continue; // skip already-held
+    if (heldCodes.indexOf(c.code) !== -1) continue;
     html += '<option value="' + c.code + '">' + c.short + ' — ' + escapeHtml(c.name) + '</option>';
   }
   select.innerHTML = html;
 
-  // Wire the Add button once
   var addBtn = document.getElementById('certsAddBtn');
   if (addBtn && !addBtn.dataset.bound) {
     addBtn.dataset.bound = '1';
@@ -1733,8 +1739,9 @@ function renderCertDropdown(catalog, held) {
       }).then(function() {
         errEl.style.display = 'none';
         showMessage('Certificate issued', 'success');
-        // Reload the modal
-        openCertsModal(certsCurrentUserId, document.getElementById('certsUserHeading').textContent.split(' (')[0]);
+        var heading = document.getElementById('certsUserHeading').textContent;
+        var userName = heading.split(' (')[0];
+        openCertsModal(certsCurrentUserId, userName);
       }).catch(function(err) {
         errEl.textContent = err.message;
         errEl.style.display = 'block';
