@@ -340,20 +340,43 @@ router.get('/gtaw/callback', async function(req, res) {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    // Fetch user profile
-    const userResponse = await fetch(baseUrl + '/oauth/userinfo', {
+        // Fetch user profile
+    const userInfoUrl = baseUrl + '/api/user';
+    console.log('=== UserInfo request ===');
+    console.log('URL:', userInfoUrl);
+    console.log('Token (first 20):', accessToken.substring(0, 20) + '...');
+
+    const userResponse = await fetch(userInfoUrl, {
       headers: {
         'Authorization': 'Bearer ' + accessToken,
         'Accept': 'application/json'
       }
     });
 
+    const contentType = userResponse.headers.get('content-type') || '';
+    console.log('Status:', userResponse.status);
+    console.log('Content-Type:', contentType);
+
     if (!userResponse.ok) {
-      console.error('GTAW userinfo failed:', await userResponse.text());
+      const errText = await userResponse.text();
+      console.error('=== GTAW USERINFO ERROR ===');
+      console.error('Status:', userResponse.status);
+      console.error('Body (first 500):', errText.substring(0, 500));
+      return res.redirect('/index.html?error=gtaw_user_failed');
+    }
+
+    // Check if response is actually JSON
+    if (contentType.indexOf('application/json') === -1) {
+      const rawText = await userResponse.text();
+      console.error('=== GTAW RETURNED NON-JSON ===');
+      console.error('Content-Type:', contentType);
+      console.error('Body (first 500):', rawText.substring(0, 500));
       return res.redirect('/index.html?error=gtaw_user_failed');
     }
 
     const gtawUser = await userResponse.json();
+    console.log('=== GTAW USER DATA ===');
+    console.log('Full response:', JSON.stringify(gtawUser));
 
     const existingResult = await database.db.execute({
       sql: 'SELECT * FROM users WHERE gtaw_id = ?',
