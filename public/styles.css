@@ -2136,3 +2136,39 @@ html[data-theme="light"] .divider::before,
 html[data-theme="light"] .divider::after,
 body.theme-light .divider::before,
 body.theme-light .divider::after { background: rgba(100, 116, 139, 0.3); }
+/* ============================================
+   GTAW LOGIN BUTTON
+   ============================================ */
+.gtaw-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, #1a5c2a 0%, #0d3d1a 100%);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: transform 0.1s, filter 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 12px rgba(26, 92, 42, 0.35);
+}
+
+.gtaw-btn:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 6px 20px rgba(26, 92, 42, 0.55);
+  transform: translateY(-1px);
+}
+
+.gtaw-btn:active { transform: translateY(1px); }
+
+.gtaw-icon {
+  font-size: 1.1rem;
+}
+
+html[data-theme="light"] .gtaw-btn,
+body.theme-light .gtaw-btn {
+  background: linear-gradient(180deg, #2d7a3f 0%, #1a5c2a 100%);
+}
