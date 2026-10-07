@@ -274,7 +274,7 @@ router.get('/gtaw', function(req, res) {
     redirect_uri: redirectUri,
     response_type: 'code',
     state: state,
-    scope: 'openid profile email'
+    scope: 'user'
   });
 
   res.redirect(baseUrl + '/oauth/authorize?' + params.toString());
