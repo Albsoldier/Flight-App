@@ -106,6 +106,32 @@ function updateThemeIcon(theme) {
 // ---------- LOGIN ----------
 function initLoginPage() {
   initTheme();
+
+  // Handle error messages from URL (redirected from OAuth callbacks)
+  var params = new URLSearchParams(window.location.search);
+  var err = params.get('error');
+  if (err) {
+    var errorBanner = document.getElementById('errorBanner');
+    var messages = {
+      not_in_gtaW: 'You must be a member of the GTAW Discord server to sign in.',
+      missing_role: 'Your GTAW account does not have the required role.',
+      account_inactive: 'Your account is inactive. Contact an administrator.',
+      state_mismatch: 'Login session expired. Please try again.',
+      no_code: 'Login was cancelled.',
+      discord_token_failed: 'Could not connect to Discord. Try again.',
+      discord_user_failed: 'Could not fetch your Discord profile.',
+      discord_error: 'Something went wrong during Discord login.',
+      gtaw_token_failed: 'Could not connect to GTA World. Try again.',
+      gtaw_user_failed: 'Could not fetch your GTAW profile.',
+      gtaw_error: 'Something went wrong during GTA World login.'
+    };
+    if (errorBanner) {
+      errorBanner.textContent = messages[err] || 'Login failed: ' + err;
+      errorBanner.style.display = 'block';
+    }
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
   api('/api/auth/status').then(function(status) {
     if (status.needsSetup) {
       document.getElementById('loginForm').style.display = 'none';
@@ -114,6 +140,10 @@ function initLoginPage() {
     if (status.discordEnabled) {
       var dp = document.getElementById('discordPanel');
       if (dp) dp.style.display = 'block';
+    }
+    if (status.gtawEnabled) {
+      var gp = document.getElementById('gtawPanel');
+      if (gp) gp.style.display = 'block';
     }
   }).catch(function(err) {
     showMessage('Cannot reach backend: ' + err.message, 'error');
@@ -408,13 +438,14 @@ function setupDashboard() {
     addAcForm.dataset.bound = '1';
     addAcForm.addEventListener('submit', createAircraft);
   }
+
   // Flight planner
   var findRouteBtn = document.getElementById('findRouteBtn');
   if (findRouteBtn && !findRouteBtn.dataset.bound) {
     findRouteBtn.dataset.bound = '1';
     findRouteBtn.addEventListener('click', findRoute);
   }
-  
+
   // NOTAM button wiring — inline handlers in the HTML call these globals
   var notamCloseBtn = document.getElementById('notamClose');
   if (notamCloseBtn && !notamCloseBtn.dataset.bound) {
@@ -462,7 +493,7 @@ function setupDashboard() {
   loadMyLog();
   loadAircraft();
   loadNotams();
-    loadWaypoints();
+  loadWaypoints();
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
@@ -1286,7 +1317,6 @@ function saveNotam() {
     expires_at: (expiresEl && expiresEl.value) ? expiresEl.value : null
   };
 
-  // Disable all buttons inside the modal to prevent double-submit
   var modal = document.getElementById('notamAddModal');
   var buttons = modal ? modal.querySelectorAll('button') : [];
   for (var b = 0; b < buttons.length; b++) buttons[b].disabled = true;
@@ -1318,6 +1348,7 @@ window.closeNotamModal = closeNotamModal;
 window.saveNotam = saveNotam;
 window.deleteNotam = deleteNotam;
 window.loadNotams = loadNotams;
+
 // ============================================
 // FLIGHT ROUTE PLANNER
 // ============================================
