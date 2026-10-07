@@ -130,7 +130,7 @@ router.get('/discord', function(req, res) {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'identify guilds guilds.members.read',
+    scope: 'user',
     state: state,
     prompt: 'consent'
   });
