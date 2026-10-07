@@ -11,7 +11,6 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
 const PORT = process.env.PORT || 3000;
-const IS_PROD = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', 1);
 app.use(cors({ origin: true, credentials: true }));
@@ -24,15 +23,16 @@ app.use(session({
   saveUninitialized: false,
   proxy: true,
   cookie: {
-    secure: IS_PROD,
+    secure: true,
     httpOnly: true,
-    sameSite: IS_PROD ? 'none' : 'lax',
+    sameSite: 'none',
     maxAge: 1000 * 60 * 60 * 8
   }
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Make io globally accessible to routes
 app.set('io', io);
 
 app.use('/api/auth', require('./routes/auth'));
@@ -48,28 +48,22 @@ app.get('/api/health', function(req, res) {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const authMiddleware = require('./middleware/auth');
-
-io.on('connection', async function(socket) {
-  try {
-    socket.emit('online-users', await authMiddleware.getOnlineUsers());
-  } catch (e) { /* ignore */ }
-
-  const interval = setInterval(async function() {
-    try {
-      socket.emit('online-users', await authMiddleware.getOnlineUsers());
-    } catch (e) { /* ignore */ }
-  }, 10000);
-
-  socket.on('disconnect', function() { clearInterval(interval); });
-});
-
 app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'public', 'index.html'), function(err) {
     if (err) {
       res.status(200).send('<h1>San Andreas Aviation Administration</h1><p>Server is running.</p>');
     }
   });
+});
+
+const authMiddleware = require('./middleware/auth');
+
+io.on('connection', function(socket) {
+  socket.emit('online-users', authMiddleware.getOnlineUsers());
+  const interval = setInterval(function() {
+    try { socket.emit('online-users', authMiddleware.getOnlineUsers()); } catch (e) {}
+  }, 10000);
+  socket.on('disconnect', function() { clearInterval(interval); });
 });
 
 app.use(function(err, req, res, next) {
@@ -84,6 +78,5 @@ server.listen(PORT, '0.0.0.0', function() {
   console.log('===========================================');
   console.log('  Server: http://localhost:' + PORT);
   console.log('  API:    http://localhost:' + PORT + '/api');
-  console.log('  Mode:   ' + (IS_PROD ? 'production' : 'development'));
   console.log('===========================================');
 });
