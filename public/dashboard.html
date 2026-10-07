@@ -111,6 +111,7 @@
       <button id="notamToggle" class="theme-toggle" title="Toggle NOTAMs">⚠</button>
       <button id="themeToggle" class="theme-toggle" title="Toggle theme">🌙</button>
       <span id="userName"></span>
+      <button id="editNameBtn" class="theme-toggle" title="Change display name">✏️</button>
       <span id="userRole" class="badge"></span>
       <button id="logoutBtn" class="btn-secondary">Log out</button>
     </div>
@@ -125,7 +126,7 @@
     <span class="breadcrumb-sep" id="allLogsSep" style="display:none;">·</span>
     <a href="#section-alllogs" class="breadcrumb-item" data-target="section-alllogs" id="allLogsCrumb" style="display:none;">All Logs</a>
     <span class="breadcrumb-sep">·</span>
-        <a href="#section-planner" class="breadcrumb-item" data-target="section-planner">Planner</a>
+    <a href="#section-planner" class="breadcrumb-item" data-target="section-planner">Planner</a>
     <span class="breadcrumb-sep">·</span>
     <a href="#section-aircraft" class="breadcrumb-item" data-target="section-aircraft">Aircraft</a>
     <span class="breadcrumb-sep">·</span>
@@ -244,7 +245,7 @@
       <div id="allLogsList"></div>
     </section>
 
-        <!-- FLIGHT PLANNER / ROUTE GENERATOR -->
+    <!-- FLIGHT PLANNER / ROUTE GENERATOR -->
     <section class="card" id="section-planner">
       <h2>🗺️ Flight Route Planner</h2>
       <p class="muted" style="margin-bottom:16px;">
@@ -427,6 +428,35 @@
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeAircraftModal()">Cancel</button>
           <button onclick="saveAircraftEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISPLAY NAME MODAL -->
+  <div id="nameModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="nameModalTitle">Change Display Name</h3>
+      </div>
+      <div class="modal-body">
+        <p class="muted" style="margin-bottom:16px;">
+          This is how you'll appear to instructors and other pilots.
+        </p>
+        <div class="field">
+          <label for="displayNameInput">Display Name</label>
+          <input
+            type="text"
+            id="displayNameInput"
+            placeholder="e.g., John Smith"
+            maxlength="40"
+            autocomplete="off"
+          >
+          <small class="muted" id="displayNameError" style="display:none; color:#f87171; margin-top:6px;"></small>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-secondary" id="skipNameBtn">Cancel</button>
+          <button id="saveNameBtn">Save Name</button>
         </div>
       </div>
     </div>
