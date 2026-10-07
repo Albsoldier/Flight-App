@@ -284,7 +284,23 @@ router.get('/gtaw', function(req, res) {
 router.get('/gtaw/callback', async function(req, res) {
   const code = req.query.code;
   const state = req.query.state;
+  const errorParam = req.query.error;
   const server = process.env.GTAW_SERVER || 'en';
+
+  // If GTAW sent an error instead of a code, handle it
+  if (errorParam) {
+    console.error('GTAW callback error:', errorParam, req.query.error_description || '');
+    if (errorParam === 'invalid_scope') {
+      return res.redirect('/index.html?error=gtaw_invalid_scope');
+    }
+    if (errorParam === 'invalid_client') {
+      return res.redirect('/index.html?error=gtaw_invalid_client');
+    }
+    if (errorParam === 'access_denied') {
+      return res.redirect('/index.html?error=no_code');
+    }
+    return res.redirect('/index.html?error=gtaw_error');
+  }
 
   if (!state || state !== req.session.gtawState) {
     return res.redirect('/index.html?error=state_mismatch');
@@ -317,7 +333,8 @@ router.get('/gtaw/callback', async function(req, res) {
     });
 
     if (!tokenResponse.ok) {
-      console.error('GTAW token exchange failed:', await tokenResponse.text());
+      const errBody = await tokenResponse.text();
+      console.error('GTAW token exchange failed:', errBody);
       return res.redirect('/index.html?error=gtaw_token_failed');
     }
 
@@ -339,7 +356,6 @@ router.get('/gtaw/callback', async function(req, res) {
 
     const gtawUser = await userResponse.json();
 
-    // Find or create local user by GTAW ID
     const existingResult = await database.db.execute({
       sql: 'SELECT * FROM users WHERE gtaw_id = ?',
       args: [String(gtawUser.sub)]
@@ -392,5 +408,3 @@ router.get('/gtaw/callback', async function(req, res) {
     res.redirect('/index.html?error=gtaw_error');
   }
 });
-
-module.exports = router;
