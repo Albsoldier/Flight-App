@@ -107,7 +107,6 @@ function updateThemeIcon(theme) {
 function initLoginPage() {
   initTheme();
 
-  // Handle error messages from URL (redirected from OAuth callbacks)
   var params = new URLSearchParams(window.location.search);
   var err = params.get('error');
   if (err) {
@@ -201,9 +200,23 @@ function initDashboard() {
     startUtcClock();
     setupDashboard();
     initSocket();
+
+    if (needsNameSetup(currentUser)) {
+      setTimeout(function() { openNameModal(true); }, 500);
+    }
   }).catch(function() {
     window.location.href = 'index.html';
   });
+}
+
+function needsNameSetup(user) {
+  if (!user) return false;
+  var name = (user.full_name || '').trim();
+  if (!name) return true;
+  if (name === 'GTAW User') return true;
+  if (name === 'Discord User') return true;
+  if (/^(gtaw|discord)_/.test(name)) return true;
+  return false;
 }
 
 // ---------- SOCKET ----------
@@ -291,6 +304,14 @@ function setupDashboard() {
   if (isInstructor) {
     var roleSelect = document.getElementById('newRole');
     if (roleSelect) roleSelect.innerHTML = '<option value="student">Student</option>';
+  }
+
+  var editNameBtn = document.getElementById('editNameBtn');
+  if (editNameBtn && !editNameBtn.dataset.bound) {
+    editNameBtn.dataset.bound = '1';
+    editNameBtn.addEventListener('click', function() {
+      openNameModal(false);
+    });
   }
 
   var logoutBtn = document.getElementById('logoutBtn');
@@ -389,7 +410,6 @@ function setupDashboard() {
     });
   }
 
-  // Upload panel toggle
   if (canManage) {
     var uf = document.getElementById('uploadForm');
     if (uf && !uf.dataset.bound) {
@@ -416,7 +436,6 @@ function setupDashboard() {
     }
   }
 
-  // Aircraft add toggle
   var showAddBtn = document.getElementById('showAddAircraftBtn');
   if (showAddBtn && !showAddBtn.dataset.bound) {
     showAddBtn.dataset.bound = '1';
@@ -441,14 +460,12 @@ function setupDashboard() {
     addAcForm.addEventListener('submit', createAircraft);
   }
 
-  // Flight planner
   var findRouteBtn = document.getElementById('findRouteBtn');
   if (findRouteBtn && !findRouteBtn.dataset.bound) {
     findRouteBtn.dataset.bound = '1';
     findRouteBtn.addEventListener('click', findRoute);
   }
 
-  // NOTAM button wiring — inline handlers in the HTML call these globals
   var notamCloseBtn = document.getElementById('notamClose');
   if (notamCloseBtn && !notamCloseBtn.dataset.bound) {
     notamCloseBtn.dataset.bound = '1';
@@ -476,17 +493,14 @@ function setupDashboard() {
     notamAddBtn.addEventListener('click', openNotamModal);
   }
 
-  // NOTAM sidebar always visible for everyone
   var notamSidebar = document.getElementById('notamSidebar');
   if (notamSidebar) notamSidebar.classList.add('open');
 
-  // Only admins see the "+ Add" button
   if (isAdmin) {
     var na = document.getElementById('notamAddBtn');
     if (na) na.style.display = 'inline-block';
   }
 
-  // Initial loads
   if (canManage) loadStats();
   if (isAdmin) loadOnlineUsers();
   if (canManage) loadUsers();
@@ -1344,7 +1358,6 @@ function deleteNotam(id) {
   });
 }
 
-// Expose NOTAM functions globally so inline onclick handlers work
 window.openNotamModal = openNotamModal;
 window.closeNotamModal = closeNotamModal;
 window.saveNotam = saveNotam;
@@ -1419,3 +1432,99 @@ function findRoute() {
     resultEl.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
+
+// ============================================
+// DISPLAY NAME MODAL
+// ============================================
+function openNameModal(isFirstLogin) {
+  var modal = document.getElementById('nameModal');
+  var title = document.getElementById('nameModalTitle');
+  var input = document.getElementById('displayNameInput');
+  var skipBtn = document.getElementById('skipNameBtn');
+  var saveBtn = document.getElementById('saveNameBtn');
+  var errorEl = document.getElementById('displayNameError');
+  if (!modal) return;
+
+  if (isFirstLogin) {
+    title.textContent = 'Welcome! Choose a Display Name';
+    skipBtn.textContent = 'Use Default';
+  } else {
+    title.textContent = 'Change Display Name';
+    skipBtn.textContent = 'Cancel';
+  }
+
+  if (currentUser && currentUser.full_name && !needsNameSetup(currentUser)) {
+    input.value = currentUser.full_name;
+  } else {
+    input.value = '';
+  }
+
+  errorEl.style.display = 'none';
+  errorEl.textContent = '';
+  modal.style.display = 'flex';
+  setTimeout(function() { input.focus(); }, 100);
+
+  if (!saveBtn.dataset.bound) {
+    saveBtn.dataset.bound = '1';
+    saveBtn.addEventListener('click', function() {
+      var name = input.value.trim();
+
+      if (!name) {
+        errorEl.textContent = 'Please enter a name';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (name.length < 2) {
+        errorEl.textContent = 'Name must be at least 2 characters';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (!/^[A-Za-z0-9 \-'.]+$/.test(name)) {
+        errorEl.textContent = 'Name contains invalid characters';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      saveBtn.disabled = true;
+      api('/api/auth/set-name', {
+        method: 'POST',
+        body: JSON.stringify({ fullName: name })
+      }).then(function(data) {
+        currentUser.full_name = data.fullName;
+        document.getElementById('userName').textContent = data.fullName;
+        closeNameModal();
+        showMessage('Display name updated', 'success');
+        saveBtn.disabled = false;
+      }).catch(function(err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+        saveBtn.disabled = false;
+      });
+    });
+  }
+
+  if (!skipBtn.dataset.bound) {
+    skipBtn.dataset.bound = '1';
+    skipBtn.addEventListener('click', function() {
+      closeNameModal();
+    });
+  }
+
+  if (!input.dataset.bound) {
+    input.dataset.bound = '1';
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveBtn.click();
+      }
+    });
+  }
+}
+
+function closeNameModal() {
+  var modal = document.getElementById('nameModal');
+  if (modal) modal.style.display = 'none';
+}
+
+window.openNameModal = openNameModal;
+window.closeNameModal = closeNameModal;
