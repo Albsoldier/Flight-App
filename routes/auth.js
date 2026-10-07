@@ -269,12 +269,11 @@ router.get('/gtaw', function(req, res) {
     ? 'https://ucp-fr.gta.world'
     : 'https://ucp.gta.world';
 
-  const params = new URLSearchParams({
+    const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    state: state,
-    scope: 'identity character'
+    state: state
   });
 
   res.redirect(baseUrl + '/oauth/authorize?' + params.toString());
