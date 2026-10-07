@@ -462,6 +462,67 @@
     </div>
   </div>
 
+  <!-- EDIT USER MODAL -->
+  <div id="editUserModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Edit User</h3>
+        <button class="modal-close" onclick="closeEditUserModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editUserId">
+
+        <p class="muted" style="margin-bottom:16px;">
+          Editing: <strong id="editUserHeading">user</strong>
+        </p>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Full Name</label>
+            <input type="text" id="editUserFullName" maxlength="40">
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <select id="editUserRole">
+              <option value="student">Student</option>
+              <option value="instructor">Instructor</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="editUserEmail">
+          </div>
+          <div class="field">
+            <label>Phone</label>
+            <input type="text" id="editUserPhone">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>New Password (leave blank to keep current)</label>
+          <input type="password" id="editUserPassword" placeholder="••••••" minlength="6">
+        </div>
+
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="editUserActive" style="width:auto; margin:0;">
+            <span>Account is active (can log in)</span>
+          </label>
+        </div>
+
+        <div id="editUserError" class="message error" style="display:none;"></div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+          <button id="saveUserBtn" onclick="saveUserEdit()">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
   <script>initDashboard();</script>
