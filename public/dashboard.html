@@ -526,5 +526,47 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
   <script>initDashboard();</script>
+    <!-- MANAGE CERTIFICATES MODAL -->
+  <div id="certsModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Manage Certificates</h3>
+        <button class="modal-close" onclick="closeCertsModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="certsUserId">
+
+        <p class="muted" style="margin-bottom:16px;">
+          Certificates for <strong id="certsUserHeading">user</strong>
+        </p>
+
+        <!-- Current certificates -->
+        <h4 style="margin-bottom:8px; color:#38bdf8; font-size:0.9rem;">Currently Held</h4>
+        <div id="certsCurrentList" class="certs-list">
+          <p class="muted">Loading...</p>
+        </div>
+
+        <!-- Add a new certificate -->
+        <h4 style="margin:16px 0 8px; color:#38bdf8; font-size:0.9rem;">Add Certificate</h4>
+        <div class="field-row">
+          <div class="field">
+            <label>Certificate Type</label>
+            <select id="certsAddSelect">
+              <option value="">— Select certificate —</option>
+            </select>
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end;">
+            <button id="certsAddBtn" style="width:100%;">+ Issue Certificate</button>
+          </div>
+        </div>
+
+        <div id="certsError" class="message error" style="display:none;"></div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeCertsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
