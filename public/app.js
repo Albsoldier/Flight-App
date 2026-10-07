@@ -124,6 +124,8 @@ function initLoginPage() {
       gtaw_token_failed: 'Could not connect to GTA World. Try again.',
       gtaw_user_failed: 'Could not fetch your GTAW profile.',
       gtaw_error: 'Something went wrong during GTA World login.'
+            gtaw_invalid_scope: 'GTAW rejected the requested permissions. Contact an admin.',
+      gtaw_invalid_client: 'GTAW rejected the app credentials. Contact an admin.'
     };
     if (errorBanner) {
       errorBanner.textContent = messages[err] || 'Login failed: ' + err;
