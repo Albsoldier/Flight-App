@@ -130,7 +130,7 @@ router.get('/discord', function(req, res) {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'user',
+    scope: 'identify guilds guilds.members.read',
     state: state,
     prompt: 'consent'
   });
@@ -274,7 +274,7 @@ router.get('/gtaw', function(req, res) {
     redirect_uri: redirectUri,
     response_type: 'code',
     state: state,
-    scope: 'user'
+    scope: 'identity character'
   });
 
   res.redirect(baseUrl + '/oauth/authorize?' + params.toString());
@@ -408,3 +408,5 @@ router.get('/gtaw/callback', async function(req, res) {
     res.redirect('/index.html?error=gtaw_error');
   }
 });
+
+module.exports = router;
