@@ -102,7 +102,6 @@ async function initSchema() {
     )
   `);
 
-  // NOTAMs table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS notams (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,6 +113,20 @@ async function initSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_by INTEGER,
       FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  // User certificates (many-to-many)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS user_certificates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      certificate_code TEXT NOT NULL,
+      issued_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      issued_by INTEGER,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (issued_by) REFERENCES users(id),
+      UNIQUE(user_id, certificate_code)
     )
   `);
 
