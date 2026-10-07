@@ -641,40 +641,72 @@ function loadOnlineUsers() {
 
 function loadUsers() {
   api('/api/admin/users').then(function(data) {
-    if (data.users.length === 0) {
+    if (!data.users || data.users.length === 0) {
       document.getElementById('usersList').innerHTML = '<p class="muted">No users yet.</p>';
       return;
     }
+
     var isAdmin = currentUser && currentUser.role === 'admin';
-    var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th><th>Status</th>' +
-               (isAdmin ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
+
+    var html = '<div class="user-grid">';
+
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
       var safeName = escapeHtml(u.full_name).replace(/'/g, '&#39;');
       var safeUsername = escapeHtml(u.username).replace(/'/g, '&#39;');
-      var nameLink = '<a href="#" onclick="showProgress(' + u.id + ', \'' + safeName + '\'); return false;">' + escapeHtml(u.full_name) + '</a>';
-      html += '<tr><td>' + u.id + '</td><td>' + escapeHtml(u.username) + '</td><td>' + nameLink + '</td>' +
-              '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
-              '<td>' + (u.total_hours || 0).toFixed(1) + '</td>' +
-              '<td>' + (u.is_active ? '✅ Active' : '❌ Inactive') + '</td>';
-      if (isAdmin) {
-        html += '<td>';
-        if (u.role !== 'admin') {
-          html += '<button class="btn-secondary btn-small" onclick="openEditUserModal(' + u.id + ')">Edit</button> ';
-          html += '<button class="btn-secondary btn-small" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')">Certs</button> ';
-          html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')">Delete</button>';
-        } else {
-          html += '<span class="muted">—</span>';
-        }
-        html += '</td>';
+      var initials = getInitials(u.full_name);
+      var hours = (u.total_hours || 0).toFixed(1);
+      var isActive = u.is_active === 1 || u.is_active === true;
+      var statusClass = isActive ? 'active' : 'inactive';
+      var statusLabel = isActive ? 'Active' : 'Inactive';
+
+      html += '<div class="user-card user-card-' + u.role + '">';
+
+      html += '  <div class="user-card-header">';
+      html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
+      html += '    <div class="user-card-titles">';
+      html += '      <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
+      html += '      <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
+      html += '    </div>';
+      html += '    <span class="user-status-dot ' + statusClass + '" title="' + statusLabel + '"></span>';
+      html += '  </div>';
+
+      html += '  <div class="user-card-body">';
+      html += '    <span class="badge badge-' + u.role + '">' + u.role + '</span>';
+      html += '    <div class="user-hours">';
+      html += '      <span class="user-hours-num">' + hours + '</span>';
+      html += '      <span class="user-hours-label">hours</span>';
+      html += '    </div>';
+      html += '  </div>';
+
+      var actionsHtml = '';
+      actionsHtml += '<button class="user-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊 Progress</button>';
+
+      if (isAdmin && u.role !== 'admin') {
+        actionsHtml += '<button class="user-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️ Edit</button>';
+        actionsHtml += '<button class="user-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️ Certs</button>';
+        actionsHtml += '<button class="user-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
+      } else if (u.role === 'admin') {
+        actionsHtml += '<span class="user-action-disabled" title="Admin account">🔒 Admin</span>';
       }
-      html += '</tr>';
+
+      html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
+
+      html += '</div>';
     }
-    html += '</tbody></table>';
+
+    html += '</div>';
     document.getElementById('usersList').innerHTML = html;
   }).catch(function(err) {
     document.getElementById('usersList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
+}
+
+function getInitials(fullName) {
+  if (!fullName) return '?';
+  var parts = String(fullName).trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
 function loadInstructors() {
