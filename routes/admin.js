@@ -6,6 +6,7 @@ const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware.isAuthenticated);
 
+// CREATE USER — Instructors: students only | Admins: anyone
 router.post('/users', authMiddleware.isInstructor, async function(req, res) {
   const username = req.body.username;
   const password = req.body.password;
@@ -44,6 +45,7 @@ router.post('/users', authMiddleware.isInstructor, async function(req, res) {
   }
 });
 
+// LIST USERS — Instructors: students only | Admins: everyone
 router.get('/users', authMiddleware.isInstructor, async function(req, res) {
   try {
     var query = 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, is_active, created_at FROM users WHERE 1=1';
@@ -62,6 +64,7 @@ router.get('/users', authMiddleware.isInstructor, async function(req, res) {
   }
 });
 
+// LIST INSTRUCTORS — any authenticated user
 router.get('/instructors', authMiddleware.isAuthenticated, async function(req, res) {
   try {
     const result = await database.db.execute(
@@ -74,29 +77,54 @@ router.get('/instructors', authMiddleware.isAuthenticated, async function(req, r
   }
 });
 
+// UPDATE USER
 router.put('/users/:id', authMiddleware.isInstructor, async function(req, res) {
   const id = req.params.id;
+  const { fullName, email, phone, licenseNumber, isActive, password, role } = req.body;
+
   try {
-    const userResult = await database.db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] });
+    const userResult = await database.db.execute({
+      sql: 'SELECT * FROM users WHERE id = ?',
+      args: [id]
+    });
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Instructor can only edit students
     if (req.session.role === 'instructor' && user.role !== 'student') {
       return res.status(403).json({ error: 'Instructors can only edit students' });
     }
 
-    var updates = [];
-    var args = [];
-    if (req.body.fullName !== undefined) { updates.push('full_name = ?'); args.push(req.body.fullName); }
-    if (req.body.email !== undefined) { updates.push('email = ?'); args.push(req.body.email); }
-    if (req.body.phone !== undefined) { updates.push('phone = ?'); args.push(req.body.phone); }
-    if (req.body.isActive !== undefined) { updates.push('is_active = ?'); args.push(req.body.isActive ? 1 : 0); }
-    if (req.body.password) {
-      updates.push('password = ?');
-      args.push(bcrypt.hashSync(req.body.password, 10));
+    // Admin cannot edit other admins
+    if (req.session.role === 'admin' && user.role === 'admin' && user.id !== req.session.userId) {
+      return res.status(403).json({ error: 'Cannot modify other admins' });
     }
 
-    if (updates.length === 0) return res.status(400).json({ error: 'No updates' });
+    // Only admins can change roles
+    if (role !== undefined && req.session.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can change roles' });
+    }
+
+    // Validate role if provided
+    if (role !== undefined && role !== 'student' && role !== 'instructor') {
+      return res.status(400).json({ error: 'Role must be student or instructor' });
+    }
+
+    var updates = [];
+    var args = [];
+    if (fullName !== undefined) { updates.push('full_name = ?'); args.push(fullName); }
+    if (email !== undefined) { updates.push('email = ?'); args.push(email); }
+    if (phone !== undefined) { updates.push('phone = ?'); args.push(phone); }
+    if (licenseNumber !== undefined) { updates.push('license_number = ?'); args.push(licenseNumber); }
+    if (isActive !== undefined) { updates.push('is_active = ?'); args.push(isActive ? 1 : 0); }
+    if (role !== undefined) { updates.push('role = ?'); args.push(role); }
+    if (password) {
+      if (password.length < 6) return res.status(400).json({ error: 'Password too short' });
+      updates.push('password = ?');
+      args.push(bcrypt.hashSync(password, 10));
+    }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'No updates provided' });
 
     args.push(id);
     await database.db.execute({
@@ -110,16 +138,23 @@ router.put('/users/:id', authMiddleware.isInstructor, async function(req, res) {
   }
 });
 
+// DELETE (soft) — admin + instructor
 router.delete('/users/:id', authMiddleware.isInstructor, async function(req, res) {
   try {
-    const userResult = await database.db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [req.params.id] });
+    const userResult = await database.db.execute({
+      sql: 'SELECT * FROM users WHERE id = ?',
+      args: [req.params.id]
+    });
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.role === 'admin') return res.status(403).json({ error: 'Cannot deactivate admin' });
     if (req.session.role === 'instructor' && user.role !== 'student') {
       return res.status(403).json({ error: 'Instructors can only deactivate students' });
     }
-    await database.db.execute({ sql: 'UPDATE users SET is_active = 0 WHERE id = ?', args: [req.params.id] });
+    await database.db.execute({
+      sql: 'UPDATE users SET is_active = 0 WHERE id = ?',
+      args: [req.params.id]
+    });
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -127,13 +162,17 @@ router.delete('/users/:id', authMiddleware.isInstructor, async function(req, res
   }
 });
 
+// HARD DELETE user — admin only
 router.delete('/users/:id/hard', authMiddleware.isAdmin, async function(req, res) {
   const id = req.params.id;
   if (parseInt(id) === req.session.userId) {
     return res.status(400).json({ error: 'You cannot delete your own account' });
   }
   try {
-    const userResult = await database.db.execute({ sql: 'SELECT * FROM users WHERE id = ?', args: [id] });
+    const userResult = await database.db.execute({
+      sql: 'SELECT * FROM users WHERE id = ?',
+      args: [id]
+    });
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete other admin accounts' });
@@ -148,11 +187,13 @@ router.delete('/users/:id/hard', authMiddleware.isAdmin, async function(req, res
   }
 });
 
+// ONLINE USERS — admin only
 router.get('/online-users', authMiddleware.isAdmin, async function(req, res) {
   const users = await authMiddleware.getOnlineUsers();
   res.json({ users: users, count: users.length });
 });
 
+// STATS
 router.get('/stats', authMiddleware.isInstructor, async function(req, res) {
   try {
     if (req.session.role === 'admin') {
