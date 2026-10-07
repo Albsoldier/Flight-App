@@ -748,7 +748,7 @@ function showProgress(userId, userName) {
     for (var i = 0; i < sessions.length; i++) totalHours += (sessions[i].duration_hours || 0);
 
     var milestones = [
-      { name: 'Student Pilot', hours: 10 },
+      { name: 'Student Pilot', hours: 5 },
       { name: 'Private Pilot (PPL)', hours: 40 },
       { name: 'Instrument Rating (IR)', hours: 50 },
       { name: 'Commercial Pilot (CPL)', hours: 250 },
