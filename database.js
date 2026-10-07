@@ -24,6 +24,9 @@ async function initSchema() {
       discord_id TEXT UNIQUE,
       discord_username TEXT,
       discord_avatar TEXT,
+      gtaw_id TEXT UNIQUE,
+      gtaw_username TEXT,
+      gtaw_character TEXT,
       auth_provider TEXT DEFAULT 'local',
       FOREIGN KEY (created_by) REFERENCES users(id)
     )
@@ -114,9 +117,13 @@ async function initSchema() {
     )
   `);
 
+  // Safe migrations
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_avatar TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_id TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_username TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_character TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
 
   console.log('✅ Database schema ready (Turso)');
