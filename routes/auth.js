@@ -117,6 +117,42 @@ router.get('/me', async function(req, res) {
   }
 });
 
+// UPDATE DISPLAY NAME
+router.post('/set-name', async function(req, res) {
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const fullName = (req.body.fullName || '').trim();
+
+  if (!fullName) {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+  if (fullName.length < 2) {
+    return res.status(400).json({ error: 'Name must be at least 2 characters' });
+  }
+  if (fullName.length > 40) {
+    return res.status(400).json({ error: 'Name must be 40 characters or less' });
+  }
+  if (!/^[A-Za-z0-9 \-'.]+$/.test(fullName)) {
+    return res.status(400).json({ error: 'Name contains invalid characters' });
+  }
+
+  try {
+    await database.db.execute({
+      sql: 'UPDATE users SET full_name = ? WHERE id = ?',
+      args: [fullName, req.session.userId]
+    });
+
+    req.session.fullName = fullName;
+
+    res.json({ success: true, fullName: fullName });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update name' });
+  }
+});
+
 // DISCORD REDIRECT
 router.get('/discord', function(req, res) {
   const clientId = process.env.DISCORD_CLIENT_ID;
@@ -269,7 +305,7 @@ router.get('/gtaw', function(req, res) {
     ? 'https://ucp-fr.gta.world'
     : 'https://ucp.gta.world';
 
-    const params = new URLSearchParams({
+  const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
@@ -286,15 +322,8 @@ router.get('/gtaw/callback', async function(req, res) {
   const errorParam = req.query.error;
   const server = process.env.GTAW_SERVER || 'en';
 
-  // If GTAW sent an error instead of a code, handle it
   if (errorParam) {
     console.error('GTAW callback error:', errorParam, req.query.error_description || '');
-    if (errorParam === 'invalid_scope') {
-      return res.redirect('/index.html?error=gtaw_invalid_scope');
-    }
-    if (errorParam === 'invalid_client') {
-      return res.redirect('/index.html?error=gtaw_invalid_client');
-    }
     if (errorParam === 'access_denied') {
       return res.redirect('/index.html?error=no_code');
     }
@@ -340,11 +369,8 @@ router.get('/gtaw/callback', async function(req, res) {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-        // Fetch user profile
+    // Fetch user profile
     const userInfoUrl = baseUrl + '/api/user';
-    console.log('=== UserInfo request ===');
-    console.log('URL:', userInfoUrl);
-    console.log('Token (first 20):', accessToken.substring(0, 20) + '...');
 
     const userResponse = await fetch(userInfoUrl, {
       headers: {
@@ -354,8 +380,6 @@ router.get('/gtaw/callback', async function(req, res) {
     });
 
     const contentType = userResponse.headers.get('content-type') || '';
-    console.log('Status:', userResponse.status);
-    console.log('Content-Type:', contentType);
 
     if (!userResponse.ok) {
       const errText = await userResponse.text();
@@ -365,7 +389,6 @@ router.get('/gtaw/callback', async function(req, res) {
       return res.redirect('/index.html?error=gtaw_user_failed');
     }
 
-    // Check if response is actually JSON
     if (contentType.indexOf('application/json') === -1) {
       const rawText = await userResponse.text();
       console.error('=== GTAW RETURNED NON-JSON ===');
@@ -376,17 +399,18 @@ router.get('/gtaw/callback', async function(req, res) {
 
     const gtawUser = await userResponse.json();
     console.log('=== GTAW USER DATA ===');
-    console.log('Full response:', JSON.stringify(gtawUser));
+    console.log(JSON.stringify(gtawUser, null, 2));
 
     const existingResult = await database.db.execute({
       sql: 'SELECT * FROM users WHERE gtaw_id = ?',
-      args: [String(gtawUser.sub)]
+      args: [String(gtawUser.sub || gtawUser.id)]
     });
 
     let user = existingResult.rows[0];
 
     if (!user) {
-      const username = 'gtaw_' + gtawUser.sub;
+      const gtawId = String(gtawUser.sub || gtawUser.id);
+      const username = 'gtaw_' + gtawId;
       const fullName = gtawUser.username || gtawUser.name || 'GTAW User';
       const email = gtawUser.email || null;
       const character = gtawUser.character ? (gtawUser.character.name || JSON.stringify(gtawUser.character)) : null;
@@ -398,7 +422,7 @@ router.get('/gtaw/callback', async function(req, res) {
           'student',
           fullName,
           email,
-          String(gtawUser.sub),
+          gtawId,
           gtawUser.username || null,
           character,
           'gtaw'
