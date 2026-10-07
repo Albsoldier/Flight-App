@@ -646,17 +646,19 @@ function loadUsers() {
       return;
     }
     var isAdmin = currentUser && currentUser.role === 'admin';
-    var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th>' +
+    var html = '<table class="table"><thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Role</th><th>Hours</th><th>Status</th>' +
                (isAdmin ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
     for (var i = 0; i < data.users.length; i++) {
       var u = data.users[i];
       var nameLink = '<a href="#" onclick="showProgress(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, "\\'") + '\'); return false;">' + escapeHtml(u.full_name) + '</a>';
       html += '<tr><td>' + u.id + '</td><td>' + escapeHtml(u.username) + '</td><td>' + nameLink + '</td>' +
               '<td><span class="badge badge-' + u.role + '">' + u.role + '</span></td>' +
-              '<td>' + (u.total_hours || 0).toFixed(1) + '</td>';
+              '<td>' + (u.total_hours || 0).toFixed(1) + '</td>' +
+              '<td>' + (u.is_active ? '✅ Active' : '❌ Inactive') + '</td>';
       if (isAdmin) {
         html += '<td>';
         if (u.role !== 'admin') {
+          html += '<button class="btn-secondary btn-small" onclick="openEditUserModal(' + u.id + ')">Edit</button> ';
           html += '<button class="btn-danger btn-small" onclick="deleteUser(' + u.id + ', \'' + u.username.replace(/'/g, "\\'") + '\')">Delete</button>';
         } else {
           html += '<span class="muted">—</span>';
@@ -1528,3 +1530,117 @@ function closeNameModal() {
 
 window.openNameModal = openNameModal;
 window.closeNameModal = closeNameModal;
+
+// ============================================
+// EDIT USER MODAL
+// ============================================
+var editUserCache = null;
+
+function openEditUserModal(userId) {
+  api('/api/admin/users').then(function(data) {
+    var user = null;
+    for (var i = 0; i < data.users.length; i++) {
+      if (data.users[i].id === userId) { user = data.users[i]; break; }
+    }
+    if (!user) {
+      showMessage('User not found', 'error');
+      return;
+    }
+
+    editUserCache = user;
+
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editUserHeading').textContent = user.username + ' (#' + user.id + ')';
+    document.getElementById('editUserFullName').value = user.full_name || '';
+    document.getElementById('editUserRole').value = user.role === 'instructor' ? 'instructor' : 'student';
+    document.getElementById('editUserEmail').value = user.email || '';
+    document.getElementById('editUserPhone').value = user.phone || '';
+    document.getElementById('editUserPassword').value = '';
+    document.getElementById('editUserActive').checked = user.is_active === 1 || user.is_active === true;
+
+    var errEl = document.getElementById('editUserError');
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+
+    var saveBtn = document.getElementById('saveUserBtn');
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Changes';
+
+    document.getElementById('editUserModal').style.display = 'flex';
+  }).catch(function(err) {
+    showMessage('Could not load user: ' + err.message, 'error');
+  });
+}
+
+function closeEditUserModal() {
+  document.getElementById('editUserModal').style.display = 'none';
+  editUserCache = null;
+}
+
+function saveUserEdit() {
+  if (!editUserCache) return;
+
+  var id = document.getElementById('editUserId').value;
+  var fullName = document.getElementById('editUserFullName').value.trim();
+  var role = document.getElementById('editUserRole').value;
+  var email = document.getElementById('editUserEmail').value.trim();
+  var phone = document.getElementById('editUserPhone').value.trim();
+  var password = document.getElementById('editUserPassword').value;
+  var isActive = document.getElementById('editUserActive').checked;
+
+  var errEl = document.getElementById('editUserError');
+  var saveBtn = document.getElementById('saveUserBtn');
+
+  if (!fullName) {
+    errEl.textContent = 'Full name is required';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (fullName.length < 2) {
+    errEl.textContent = 'Full name must be at least 2 characters';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!/^[A-Za-z0-9 \-'.]+$/.test(fullName)) {
+    errEl.textContent = 'Full name contains invalid characters';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password && password.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  var payload = {
+    fullName: fullName,
+    role: role,
+    email: email || null,
+    phone: phone || null,
+    isActive: isActive
+  };
+  if (password) payload.password = password;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving...';
+
+  api('/api/admin/users/' + id, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  }).then(function() {
+    showMessage('User updated successfully', 'success');
+    closeEditUserModal();
+    loadUsers();
+    loadInstructors();
+  }).catch(function(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Save Changes';
+  });
+}
+
+window.openEditUserModal = openEditUserModal;
+window.closeEditUserModal = closeEditUserModal;
+window.saveUserEdit = saveUserEdit;
