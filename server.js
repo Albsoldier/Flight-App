@@ -42,6 +42,7 @@ app.use('/api/materials', require('./routes/materials'));
 app.use('/api/aircraft', require('./routes/aircraft'));
 app.use('/api/notams', require('./routes/notams'));
 app.use('/api/routes', require('./routes/routes'));
+app.use('/api/certificates', require('./routes/certificates'));
 
 app.get('/api/health', function(req, res) {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
