@@ -22,7 +22,8 @@ router.get('/status', async function(req, res) {
       initialized: initialized,
       hasAdmin: hasAdmin,
       needsSetup: !initialized && !hasAdmin,
-      discordEnabled: !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET)
+      discordEnabled: !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
+      gtawEnabled: !!(process.env.GTAW_CLIENT_ID && process.env.GTAW_CLIENT_SECRET)
     });
   } catch (err) {
     console.error(err);
@@ -104,7 +105,7 @@ router.get('/me', async function(req, res) {
   }
   try {
     const result = await database.db.execute({
-      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username FROM users WHERE id = ?',
+      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username, gtaw_username, gtaw_character FROM users WHERE id = ?',
       args: [req.session.userId]
     });
     const user = result.rows[0];
@@ -188,7 +189,7 @@ router.get('/discord/callback', async function(req, res) {
     );
 
     if (!memberResponse.ok) {
-      console.error('GTAW member check failed. Status:', memberResponse.status);
+      console.error('Discord member check failed. Status:', memberResponse.status);
       return res.redirect('/index.html?error=not_in_gtaW');
     }
 
@@ -244,6 +245,151 @@ router.get('/discord/callback', async function(req, res) {
   } catch (err) {
     console.error('Discord auth error:', err);
     res.redirect('/index.html?error=discord_error');
+  }
+});
+
+// ============================================
+// GTAW OAUTH 2.0
+// ============================================
+
+// Step 1: Redirect to GTAW
+router.get('/gtaw', function(req, res) {
+  const clientId = process.env.GTAW_CLIENT_ID;
+  const redirectUri = process.env.GTAW_REDIRECT_URI;
+  const server = process.env.GTAW_SERVER || 'en';
+
+  if (!clientId || !redirectUri) {
+    return res.status(500).send('GTAW login not configured');
+  }
+
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.gtawState = state;
+
+  const baseUrl = server === 'fr'
+    ? 'https://ucp-fr.gta.world'
+    : 'https://ucp.gta.world';
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    state: state,
+    scope: 'openid profile email'
+  });
+
+  res.redirect(baseUrl + '/oauth/authorize?' + params.toString());
+});
+
+// Step 2: Handle GTAW callback
+router.get('/gtaw/callback', async function(req, res) {
+  const code = req.query.code;
+  const state = req.query.state;
+  const server = process.env.GTAW_SERVER || 'en';
+
+  if (!state || state !== req.session.gtawState) {
+    return res.redirect('/index.html?error=state_mismatch');
+  }
+  delete req.session.gtawState;
+
+  if (!code) {
+    return res.redirect('/index.html?error=no_code');
+  }
+
+  try {
+    const baseUrl = server === 'fr'
+      ? 'https://ucp-fr.gta.world'
+      : 'https://ucp.gta.world';
+
+    // Exchange code for token
+    const tokenResponse = await fetch(baseUrl + '/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: process.env.GTAW_CLIENT_ID,
+        client_secret: process.env.GTAW_CLIENT_SECRET,
+        code: code,
+        redirect_uri: process.env.GTAW_REDIRECT_URI
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      console.error('GTAW token exchange failed:', await tokenResponse.text());
+      return res.redirect('/index.html?error=gtaw_token_failed');
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+
+    // Fetch user profile
+    const userResponse = await fetch(baseUrl + '/oauth/userinfo', {
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!userResponse.ok) {
+      console.error('GTAW userinfo failed:', await userResponse.text());
+      return res.redirect('/index.html?error=gtaw_user_failed');
+    }
+
+    const gtawUser = await userResponse.json();
+
+    // Find or create local user by GTAW ID
+    const existingResult = await database.db.execute({
+      sql: 'SELECT * FROM users WHERE gtaw_id = ?',
+      args: [String(gtawUser.sub)]
+    });
+
+    let user = existingResult.rows[0];
+
+    if (!user) {
+      const username = 'gtaw_' + gtawUser.sub;
+      const fullName = gtawUser.username || gtawUser.name || 'GTAW User';
+      const email = gtawUser.email || null;
+      const character = gtawUser.character ? (gtawUser.character.name || JSON.stringify(gtawUser.character)) : null;
+
+      const insertResult = await database.db.execute({
+        sql: 'INSERT INTO users (username, password, role, full_name, email, is_active, gtaw_id, gtaw_username, gtaw_character, auth_provider) VALUES (?, NULL, ?, ?, ?, 1, ?, ?, ?, ?)',
+        args: [
+          username,
+          'student',
+          fullName,
+          email,
+          String(gtawUser.sub),
+          gtawUser.username || null,
+          character,
+          'gtaw'
+        ]
+      });
+      const newUserId = Number(insertResult.lastInsertRowid);
+      const newUserResult = await database.db.execute({
+        sql: 'SELECT * FROM users WHERE id = ?',
+        args: [newUserId]
+      });
+      user = newUserResult.rows[0];
+    } else {
+      const character = gtawUser.character ? (gtawUser.character.name || JSON.stringify(gtawUser.character)) : null;
+      await database.db.execute({
+        sql: 'UPDATE users SET gtaw_username = ?, gtaw_character = ? WHERE id = ?',
+        args: [gtawUser.username || null, character, user.id]
+      });
+    }
+
+    if (!user.is_active) {
+      return res.redirect('/index.html?error=account_inactive');
+    }
+
+    await establishSession(req, user);
+    res.redirect('/dashboard.html');
+
+  } catch (err) {
+    console.error('GTAW auth error:', err);
+    res.redirect('/index.html?error=gtaw_error');
   }
 });
 
