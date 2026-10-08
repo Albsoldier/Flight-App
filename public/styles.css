@@ -2715,4 +2715,170 @@ body.theme-light .avatar-preview-initials {
     height: 36px;
     font-size: 1.2rem;
   }
+/* ============================================
+   MATERIAL FOLDERS
+   ============================================ */
+.material-folder {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.material-folder:hover {
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.material-folder.open {
+  border-color: rgba(56, 189, 248, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.material-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(30, 41, 59, 0.6);
+  transition: background 0.2s;
+  position: relative;
+}
+
+.material-folder-header:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.material-folder-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, transparent, rgba(56, 189, 248, 0.6), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.material-folder.open .material-folder-header::before {
+  opacity: 1;
+}
+
+.material-folder-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
+  transition: transform 0.2s;
+}
+
+.material-folder.open .material-folder-icon {
+  transform: scale(1.05);
+}
+
+.material-folder-name {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #38bdf8;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.material-folder-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 8px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #38bdf8;
+  font-family: 'Courier New', monospace;
+}
+
+.material-folder-chevron {
+  font-size: 1rem;
+  color: #64748b;
+  transition: transform 0.25s ease, color 0.2s;
+  display: inline-block;
+  line-height: 1;
+}
+
+.material-folder.open .material-folder-chevron {
+  transform: rotate(180deg);
+  color: #38bdf8;
+}
+
+.material-folder-body {
+  display: none;
+  padding: 16px 18px 18px;
+  border-top: 1px solid rgba(56, 189, 248, 0.12);
+  animation: folderSlideDown 0.25s ease;
+}
+
+.material-folder.open .material-folder-body {
+  display: block;
+}
+
+@keyframes folderSlideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Material cards inside folders — smaller gap */
+.material-folder-body .materials-grid {
+  margin-top: 0;
+}
+
+/* Light theme */
+html[data-theme="light"] .material-folder,
+body.theme-light .material-folder {
+  background: rgba(241, 245, 249, 0.6);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+html[data-theme="light"] .material-folder-header,
+body.theme-light .material-folder-header {
+  background: rgba(226, 232, 240, 0.8);
+}
+
+html[data-theme="light"] .material-folder-header:hover,
+body.theme-light .material-folder-header:hover {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+html[data-theme="light"] .material-folder-name,
+body.theme-light .material-folder-name {
+  color: #0284c7;
+  text-shadow: none;
+}
+
+html[data-theme="light"] .material-folder-count,
+body.theme-light .material-folder-count {
+  background: rgba(56, 189, 248, 0.2);
+  color: #0284c7;
+}
+
+html[data-theme="light"] .material-folder-body,
+body.theme-light .material-folder-body {
+  border-top-color: rgba(203, 213, 225, 0.8);
+}
+
+@media (max-width: 640px) {
+  .material-folder-header { padding: 12px 14px; }
+  .material-folder-body { padding: 12px 14px 14px; }
+  .material-folder-name { font-size: 0.85rem; letter-spacing: 0.05em; }
 }
