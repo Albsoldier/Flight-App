@@ -423,6 +423,7 @@ function setupDashboard() {
       sub.addEventListener('click', function() {
         var form = document.getElementById('uploadForm');
         if (form) { form.style.display = 'block'; this.style.display = 'none'; }
+        populateMaterialCategories();
       });
     }
     var cub = document.getElementById('cancelUploadBtn');
@@ -433,6 +434,8 @@ function setupDashboard() {
         var showBtn = document.getElementById('showUploadBtn');
         if (form) { form.style.display = 'none'; form.reset(); }
         if (showBtn) showBtn.style.display = 'inline-block';
+        var input = document.getElementById('matCategory');
+        if (input) { input.style.display = 'none'; input.value = ''; }
       });
     }
   }
@@ -1067,7 +1070,6 @@ function loadMaterials() {
       return;
     }
 
-    // Group by category
     var groups = {};
     for (var i = 0; i < data.materials.length; i++) {
       var m = data.materials[i];
@@ -1076,7 +1078,6 @@ function loadMaterials() {
       groups[cat].push(m);
     }
 
-    // Sort categories alphabetically
     var categories = Object.keys(groups).sort(function(a, b) {
       return a.localeCompare(b);
     });
@@ -1088,11 +1089,9 @@ function loadMaterials() {
       var cat = categories[c];
       var items = groups[cat];
 
-      // Open by default if not toggled yet (first folder open)
       var isOpen = materialFoldersState[cat];
       if (isOpen === undefined) isOpen = (c === 0);
       var openClass = isOpen ? ' open' : '';
-      var chevClass = isOpen ? ' open' : '';
       var safeCat = cat.replace(/'/g, '&#39;');
 
       html += '<div class="material-folder' + openClass + '">';
@@ -1101,7 +1100,7 @@ function loadMaterials() {
       html += '    <span class="material-folder-icon">📁</span>';
       html += '    <span class="material-folder-name">' + escapeHtml(cat) + '</span>';
       html += '    <span class="material-folder-count">' + items.length + '</span>';
-      html += '    <span class="material-folder-chevron' + chevClass + '">▾</span>';
+      html += '    <span class="material-folder-chevron">▾</span>';
       html += '  </div>';
 
       html += '  <div class="material-folder-body">';
@@ -1156,6 +1155,44 @@ function toggleMaterialFolder(category) {
 
 window.toggleMaterialFolder = toggleMaterialFolder;
 
+function populateMaterialCategories() {
+  var select = document.getElementById('matCategorySelect');
+  var input = document.getElementById('matCategory');
+  if (!select) return;
+
+  api('/api/materials').then(function(data) {
+    var cats = {};
+    var materials = data.materials || [];
+    for (var i = 0; i < materials.length; i++) {
+      var c = (materials[i].category || 'General').trim() || 'General';
+      cats[c] = true;
+    }
+    var sorted = Object.keys(cats).sort(function(a, b) { return a.localeCompare(b); });
+
+    var html = '<option value="">— Select a folder —</option>';
+    for (var j = 0; j < sorted.length; j++) {
+      html += '<option value="' + escapeHtml(sorted[j]) + '">' + escapeHtml(sorted[j]) + '</option>';
+    }
+    html += '<option value="__new__">+ New category…</option>';
+    select.innerHTML = html;
+
+    if (input) { input.style.display = 'none'; input.value = ''; }
+
+    if (!select.dataset.bound) {
+      select.dataset.bound = '1';
+      select.addEventListener('change', function() {
+        if (select.value === '__new__') {
+          input.style.display = 'block';
+          input.focus();
+        } else {
+          input.style.display = 'none';
+          input.value = '';
+        }
+      });
+    }
+  }).catch(function() {});
+}
+
 function getFileIcon(mime, filename) {
   if (!mime) mime = '';
   var ext = (filename || '').toLowerCase().split('.').pop();
@@ -1185,16 +1222,28 @@ function uploadMaterial(e) {
   e.preventDefault();
   var file = document.getElementById('matFile').files[0];
   if (!file) return;
+
+  var select = document.getElementById('matCategorySelect');
+  var input = document.getElementById('matCategory');
+  var category = 'General';
+
+  if (select && select.value === '__new__') {
+    category = (input.value || '').trim() || 'General';
+  } else if (select && select.value) {
+    category = select.value;
+  }
+
   var formData = new FormData();
   formData.append('file', file);
   formData.append('title', document.getElementById('matTitle').value);
   formData.append('description', document.getElementById('matDescription').value);
-  formData.append('category', document.getElementById('matCategory').value || 'General');
+  formData.append('category', category);
 
   api('/api/materials', { method: 'POST', body: formData }).then(function() {
     showMessage('Material uploaded', 'success');
     e.target.reset();
     e.target.style.display = 'none';
+    if (input) { input.style.display = 'none'; input.value = ''; }
     var showBtn = document.getElementById('showUploadBtn');
     if (showBtn) showBtn.style.display = 'inline-block';
     loadMaterials();
@@ -1646,7 +1695,6 @@ function openEditUserModal(userId) {
     document.getElementById('editUserPassword').value = '';
     document.getElementById('editUserActive').checked = user.is_active === 1 || user.is_active === true;
 
-    // Avatar preview
     var preview = document.getElementById('editUserAvatarPreview');
     var removeBtn = document.getElementById('editUserAvatarRemoveBtn');
     if (preview) {
