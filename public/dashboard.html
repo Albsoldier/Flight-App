@@ -580,6 +580,14 @@
     </div>
   </div>
 
+  <!-- AVATAR LIGHTBOX -->
+  <div id="avatarLightbox" class="avatar-lightbox" style="display:none;" onclick="closeAvatarLightbox()">
+    <div class="avatar-lightbox-inner" onclick="event.stopPropagation()">
+      <img id="avatarLightboxImg" src="" alt="">
+      <button class="avatar-lightbox-close" onclick="closeAvatarLightbox()" title="Close">×</button>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js"></script>
   <script>initDashboard();</script>
