@@ -507,6 +507,20 @@
         </div>
 
         <div class="field">
+          <label>Profile Picture</label>
+          <div class="avatar-edit-row">
+            <div id="editUserAvatarPreview" class="avatar-preview">
+              <span class="avatar-preview-initials">?</span>
+            </div>
+            <div class="avatar-edit-controls">
+              <input type="file" id="editUserAvatarInput" accept="image/*" style="display:none;">
+              <button type="button" id="editUserAvatarPickBtn" class="btn-secondary btn-small">📷 Choose Image</button>
+              <button type="button" id="editUserAvatarRemoveBtn" class="btn-danger btn-small" style="display:none;">Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
             <input type="checkbox" id="editUserActive" style="width:auto; margin:0;">
             <span>Account is active (can log in)</span>
