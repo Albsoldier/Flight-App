@@ -663,7 +663,11 @@ function loadUsers() {
       html += '<div class="user-card user-card-' + u.role + '">';
 
       html += '  <div class="user-card-header">';
-      html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
+      if (u.avatar_filename) {
+        html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + '"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
+      } else {
+        html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
+      }
       html += '    <div class="user-card-titles">';
       html += '      <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
       html += '      <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
@@ -1594,6 +1598,76 @@ function openEditUserModal(userId) {
     document.getElementById('editUserPhone').value = user.phone || '';
     document.getElementById('editUserPassword').value = '';
     document.getElementById('editUserActive').checked = user.is_active === 1 || user.is_active === true;
+
+    // Avatar preview
+    var preview = document.getElementById('editUserAvatarPreview');
+    var removeBtn = document.getElementById('editUserAvatarRemoveBtn');
+    if (preview) {
+      if (user.avatar_filename) {
+        preview.innerHTML = '<img src="/api/admin/users/' + user.id + '/avatar?t=' + Date.now() + '" alt="">';
+        if (removeBtn) removeBtn.style.display = 'inline-block';
+      } else {
+        var initials = getInitials(user.full_name);
+        preview.innerHTML = '<span class="avatar-preview-initials">' + escapeHtml(initials) + '</span>';
+        if (removeBtn) removeBtn.style.display = 'none';
+      }
+    }
+
+    var input = document.getElementById('editUserAvatarInput');
+    var pickBtn = document.getElementById('editUserAvatarPickBtn');
+    var removeBtn2 = document.getElementById('editUserAvatarRemoveBtn');
+
+    if (input) input.value = '';
+
+    if (pickBtn && !pickBtn.dataset.bound) {
+      pickBtn.dataset.bound = '1';
+      pickBtn.addEventListener('click', function() { input.click(); });
+    }
+
+    if (input && !input.dataset.bound) {
+      input.dataset.bound = '1';
+      input.addEventListener('change', function() {
+        var file = input.files && input.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+          showMessage('Image must be under 5 MB', 'error');
+          input.value = '';
+          return;
+        }
+
+        var currentId = document.getElementById('editUserId').value;
+        var formData = new FormData();
+        formData.append('avatar', file);
+
+        api('/api/admin/users/' + currentId + '/avatar', { method: 'POST', body: formData }).then(function() {
+          showMessage('Avatar updated', 'success');
+          var prev = document.getElementById('editUserAvatarPreview');
+          if (prev) prev.innerHTML = '<img src="/api/admin/users/' + currentId + '/avatar?t=' + Date.now() + '" alt="">';
+          if (removeBtn2) removeBtn2.style.display = 'inline-block';
+          loadUsers();
+        }).catch(function(err) {
+          showMessage(err.message || 'Upload failed', 'error');
+        });
+      });
+    }
+
+    if (removeBtn2 && !removeBtn2.dataset.bound) {
+      removeBtn2.dataset.bound = '1';
+      removeBtn2.addEventListener('click', function() {
+        if (!confirm('Remove this user\'s profile picture?')) return;
+        var currentId = document.getElementById('editUserId').value;
+        api('/api/admin/users/' + currentId + '/avatar', { method: 'DELETE' }).then(function() {
+          showMessage('Avatar removed', 'success');
+          var prev = document.getElementById('editUserAvatarPreview');
+          if (prev) prev.innerHTML = '<span class="avatar-preview-initials">?</span>';
+          removeBtn2.style.display = 'none';
+          loadUsers();
+        }).catch(function(err) {
+          showMessage(err.message, 'error');
+        });
+      });
+    }
 
     var errEl = document.getElementById('editUserError');
     errEl.style.display = 'none';
