@@ -17,6 +17,7 @@ async function initSchema() {
       email TEXT,
       phone TEXT,
       license_number TEXT,
+      avatar_filename TEXT,
       total_hours REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_by INTEGER,
@@ -138,6 +139,7 @@ async function initSchema() {
   try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_username TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_character TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN avatar_filename TEXT"); } catch(e) {}
 
   console.log('✅ Database schema ready (Turso)');
 }
