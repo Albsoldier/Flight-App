@@ -1881,3 +1881,30 @@ function closeCertsModal() {
 window.openCertsModal = openCertsModal;
 window.closeCertsModal = closeCertsModal;
 window.revokeCert = revokeCert;
+// ============================================
+// AVATAR LIGHTBOX
+// ============================================
+function openAvatarLightbox(userId) {
+  var lb = document.getElementById('avatarLightbox');
+  var img = document.getElementById('avatarLightboxImg');
+  if (!lb || !img) return;
+  img.src = '/api/admin/users/' + userId + '/avatar?t=' + Date.now();
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeAvatarLightbox() {
+  var lb = document.getElementById('avatarLightbox');
+  var img = document.getElementById('avatarLightboxImg');
+  if (lb) lb.style.display = 'none';
+  if (img) img.src = '';
+  document.body.style.overflow = '';
+}
+
+window.openAvatarLightbox = openAvatarLightbox;
+window.closeAvatarLightbox = closeAvatarLightbox;
+
+// Esc key closes lightbox
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeAvatarLightbox();
+});
