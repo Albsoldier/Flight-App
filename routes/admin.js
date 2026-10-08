@@ -1,8 +1,22 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const uuid = require('uuid');
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
+const r2 = require('../r2-storage');
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: function(req, file, cb) {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.indexOf(file.mimetype) !== -1) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
 
 router.use(authMiddleware.isAuthenticated);
 
@@ -48,7 +62,7 @@ router.post('/users', authMiddleware.isInstructor, async function(req, res) {
 // LIST USERS — Instructors: students only | Admins: everyone
 router.get('/users', authMiddleware.isInstructor, async function(req, res) {
   try {
-    var query = 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, is_active, created_at FROM users WHERE 1=1';
+    var query = 'SELECT id, username, role, full_name, email, phone, license_number, avatar_filename, total_hours, is_active, created_at FROM users WHERE 1=1';
     var args = [];
 
     if (req.session.role === 'instructor') {
@@ -177,6 +191,11 @@ router.delete('/users/:id/hard', authMiddleware.isAdmin, async function(req, res
     if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete other admin accounts' });
 
+    // Delete avatar from R2 if present
+    if (user.avatar_filename) {
+      try { await r2.deleteFile(user.avatar_filename); } catch (e) { /* ignore */ }
+    }
+
     await database.db.execute({ sql: 'DELETE FROM flight_sessions WHERE student_id = ?', args: [id] });
     await database.db.execute({ sql: 'DELETE FROM active_sessions WHERE user_id = ?', args: [id] });
     await database.db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [id] });
@@ -184,6 +203,84 @@ router.delete('/users/:id/hard', authMiddleware.isAdmin, async function(req, res
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// UPLOAD AVATAR — admin only
+router.post('/users/:id/avatar', authMiddleware.isAdmin, avatarUpload.single('avatar'), async function(req, res) {
+  try {
+    const id = req.params.id;
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+
+    const userResult = await database.db.execute({
+      sql: 'SELECT id, avatar_filename FROM users WHERE id = ?',
+      args: [id]
+    });
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.avatar_filename) {
+      try { await r2.deleteFile(user.avatar_filename); } catch (e) { /* ignore */ }
+    }
+
+    const ext = path.extname(req.file.originalname) || '.jpg';
+    const avatarKey = 'avatars/' + uuid.v4() + ext;
+    await r2.uploadFile(avatarKey, req.file.buffer, req.file.mimetype);
+
+    await database.db.execute({
+      sql: 'UPDATE users SET avatar_filename = ? WHERE id = ?',
+      args: [avatarKey, id]
+    });
+
+    res.json({ success: true, avatar_filename: avatarKey });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+// REMOVE AVATAR — admin only
+router.delete('/users/:id/avatar', authMiddleware.isAdmin, async function(req, res) {
+  try {
+    const id = req.params.id;
+    const userResult = await database.db.execute({
+      sql: 'SELECT avatar_filename FROM users WHERE id = ?',
+      args: [id]
+    });
+    const user = userResult.rows[0];
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    if (user.avatar_filename) {
+      try { await r2.deleteFile(user.avatar_filename); } catch (e) { /* ignore */ }
+    }
+
+    await database.db.execute({
+      sql: 'UPDATE users SET avatar_filename = NULL WHERE id = ?',
+      args: [id]
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to remove avatar' });
+  }
+});
+
+// SERVE AVATAR — any authenticated user
+router.get('/users/:id/avatar', authMiddleware.isAuthenticated, async function(req, res) {
+  try {
+    const result = await database.db.execute({
+      sql: 'SELECT avatar_filename FROM users WHERE id = ?',
+      args: [req.params.id]
+    });
+    const row = result.rows[0];
+    if (!row || !row.avatar_filename) return res.status(404).send('No avatar');
+
+    const signedUrl = await r2.getSignedDownloadUrl(row.avatar_filename, 3600);
+    res.redirect(signedUrl);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
   }
 });
 
