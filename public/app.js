@@ -9,6 +9,7 @@ var allLogsCache = [];
 var socket = null;
 var aircraftCache = [];
 var notamCache = [];
+var materialFoldersState = {};
 
 function api(path, options) {
   options = options || {};
@@ -1061,43 +1062,81 @@ function doStopFlight() {
 // ---------- MATERIALS ----------
 function loadMaterials() {
   api('/api/materials').then(function(data) {
-    if (data.materials.length === 0) {
+    if (!data.materials || data.materials.length === 0) {
       document.getElementById('materialsList').innerHTML = '<p class="muted">No materials uploaded yet.</p>';
       return;
     }
 
+    // Group by category
+    var groups = {};
+    for (var i = 0; i < data.materials.length; i++) {
+      var m = data.materials[i];
+      var cat = (m.category || 'General').trim() || 'General';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(m);
+    }
+
+    // Sort categories alphabetically
+    var categories = Object.keys(groups).sort(function(a, b) {
+      return a.localeCompare(b);
+    });
+
     var isAdmin = currentUser && currentUser.role === 'admin';
     var html = '';
 
-    for (var i = 0; i < data.materials.length; i++) {
-      var m = data.materials[i];
-      var icon = getFileIcon(m.mime_type, m.file_name);
-      var size = formatFileSize(m.file_size);
-      var category = m.category || 'General';
+    for (var c = 0; c < categories.length; c++) {
+      var cat = categories[c];
+      var items = groups[cat];
 
-      html += '<div class="material-card">';
-      html += '  <div class="material-icon">' + icon + '</div>';
-      html += '  <div class="material-body">';
-      html += '    <div class="material-header">';
-      html += '      <div class="material-title">' + escapeHtml(m.title) + '</div>';
-      html += '      <span class="material-category">' + escapeHtml(category) + '</span>';
-      html += '    </div>';
-      if (m.description) {
-        html += '    <div class="material-description">' + escapeHtml(m.description) + '</div>';
+      // Open by default if not toggled yet (first folder open)
+      var isOpen = materialFoldersState[cat];
+      if (isOpen === undefined) isOpen = (c === 0);
+      var openClass = isOpen ? ' open' : '';
+      var chevClass = isOpen ? ' open' : '';
+      var safeCat = cat.replace(/'/g, '&#39;');
+
+      html += '<div class="material-folder' + openClass + '">';
+
+      html += '  <div class="material-folder-header" onclick="toggleMaterialFolder(\'' + safeCat + '\')">';
+      html += '    <span class="material-folder-icon">📁</span>';
+      html += '    <span class="material-folder-name">' + escapeHtml(cat) + '</span>';
+      html += '    <span class="material-folder-count">' + items.length + '</span>';
+      html += '    <span class="material-folder-chevron' + chevClass + '">▾</span>';
+      html += '  </div>';
+
+      html += '  <div class="material-folder-body">';
+      html += '    <div class="materials-grid">';
+
+      for (var j = 0; j < items.length; j++) {
+        var m = items[j];
+        var icon = getFileIcon(m.mime_type, m.file_name);
+        var size = formatFileSize(m.file_size);
+
+        html += '<div class="material-card">';
+        html += '  <div class="material-icon">' + icon + '</div>';
+        html += '  <div class="material-body">';
+        html += '    <div class="material-title">' + escapeHtml(m.title) + '</div>';
+        if (m.description) {
+          html += '    <div class="material-description">' + escapeHtml(m.description) + '</div>';
+        }
+        html += '    <div class="material-meta">';
+        html += '      <span>' + size + '</span>';
+        if (m.uploader_name) {
+          html += '      <span>·</span>';
+          html += '      <span>by ' + escapeHtml(m.uploader_name) + '</span>';
+        }
+        html += '    </div>';
+        html += '    <div class="material-actions">';
+        html += '      <a href="/api/materials/' + m.id + '/download" target="_blank" class="btn-small btn-download">Download</a>';
+        if (isAdmin) {
+          var safeTitle = escapeHtml(m.title).replace(/'/g, '&#39;');
+          html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + safeTitle + '\')">Delete</button>';
+        }
+        html += '    </div>';
+        html += '  </div>';
+        html += '</div>';
       }
-      html += '    <div class="material-meta">';
-      html += '      <span>' + size + '</span>';
-      if (m.uploader_name) {
-        html += '      <span>·</span>';
-        html += '      <span>by ' + escapeHtml(m.uploader_name) + '</span>';
-      }
-      html += '    </div>';
-      html += '    <div class="material-actions">';
-      html += '      <a href="/api/materials/' + m.id + '/download" target="_blank" class="btn-small btn-download">Download</a>';
-      if (isAdmin) {
-        var safeTitle = escapeHtml(m.title).replace(/'/g, '&#39;');
-        html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + safeTitle + '\')">Delete</button>';
-      }
+
       html += '    </div>';
       html += '  </div>';
       html += '</div>';
@@ -1108,6 +1147,14 @@ function loadMaterials() {
     document.getElementById('materialsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
+
+function toggleMaterialFolder(category) {
+  var current = materialFoldersState[category];
+  materialFoldersState[category] = !current;
+  loadMaterials();
+}
+
+window.toggleMaterialFolder = toggleMaterialFolder;
 
 function getFileIcon(mime, filename) {
   if (!mime) mime = '';
