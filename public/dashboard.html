@@ -332,7 +332,11 @@
             </div>
             <div class="field">
               <label>Category</label>
-              <input type="text" id="matCategory" placeholder="Ground School">
+              <select id="matCategorySelect">
+                <option value="">— Select a folder —</option>
+                <option value="__new__">+ New category…</option>
+              </select>
+              <input type="text" id="matCategory" placeholder="Enter new category name" style="display:none; margin-top:8px;">
             </div>
           </div>
           <div class="field">
