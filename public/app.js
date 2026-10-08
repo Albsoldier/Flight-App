@@ -664,7 +664,7 @@ function loadUsers() {
 
       html += '  <div class="user-card-header">';
       if (u.avatar_filename) {
-        html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + '"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
+        html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + ' user-avatar-clickable" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
       } else {
         html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
       }
@@ -1604,7 +1604,7 @@ function openEditUserModal(userId) {
     var removeBtn = document.getElementById('editUserAvatarRemoveBtn');
     if (preview) {
       if (user.avatar_filename) {
-        preview.innerHTML = '<img src="/api/admin/users/' + user.id + '/avatar?t=' + Date.now() + '" alt="">';
+        preview.innerHTML = '<img src="/api/admin/users/' + user.id + '/avatar?t=' + Date.now() + '" alt="" style="cursor:zoom-in;" onclick="openAvatarLightbox(' + user.id + ')">';
         if (removeBtn) removeBtn.style.display = 'inline-block';
       } else {
         var initials = getInitials(user.full_name);
@@ -1643,7 +1643,7 @@ function openEditUserModal(userId) {
         api('/api/admin/users/' + currentId + '/avatar', { method: 'POST', body: formData }).then(function() {
           showMessage('Avatar updated', 'success');
           var prev = document.getElementById('editUserAvatarPreview');
-          if (prev) prev.innerHTML = '<img src="/api/admin/users/' + currentId + '/avatar?t=' + Date.now() + '" alt="">';
+          if (prev) prev.innerHTML = '<img src="/api/admin/users/' + currentId + '/avatar?t=' + Date.now() + '" alt="" style="cursor:zoom-in;" onclick="openAvatarLightbox(' + currentId + ')">';
           if (removeBtn2) removeBtn2.style.display = 'inline-block';
           loadUsers();
         }).catch(function(err) {
@@ -1881,6 +1881,7 @@ function closeCertsModal() {
 window.openCertsModal = openCertsModal;
 window.closeCertsModal = closeCertsModal;
 window.revokeCert = revokeCert;
+
 // ============================================
 // AVATAR LIGHTBOX
 // ============================================
@@ -1904,7 +1905,6 @@ function closeAvatarLightbox() {
 window.openAvatarLightbox = openAvatarLightbox;
 window.closeAvatarLightbox = closeAvatarLightbox;
 
-// Esc key closes lightbox
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeAvatarLightbox();
 });
