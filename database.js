@@ -130,6 +130,26 @@ async function initSchema() {
     )
   `);
 
+  // Aircraft rental requests
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS rental_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      aircraft_id INTEGER NOT NULL,
+      requester_id INTEGER NOT NULL,
+      start_date DATETIME NOT NULL,
+      duration_hours REAL NOT NULL,
+      notes TEXT,
+      status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied', 'cancelled')),
+      reviewed_by INTEGER,
+      reviewed_at DATETIME,
+      review_notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (aircraft_id) REFERENCES aircraft(id),
+      FOREIGN KEY (requester_id) REFERENCES users(id),
+      FOREIGN KEY (reviewed_by) REFERENCES users(id)
+    )
+  `);
+
   // Safe migrations
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
