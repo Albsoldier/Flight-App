@@ -7,6 +7,20 @@ const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const r2 = require('../r2-storage');
 
+function isRealImage(buffer, mimetype) {
+  if (!buffer || buffer.length < 4) return false;
+  var hex = buffer.slice(0, 4).toString('hex').toUpperCase();
+
+  if (mimetype === 'image/jpeg' && hex.startsWith('FFD8FF')) return true;
+  if (mimetype === 'image/png' && hex.startsWith('89504E47')) return true;
+  if (mimetype === 'image/gif' && hex.startsWith('474946')) return true;
+  if (mimetype === 'image/webp') {
+    var head = buffer.slice(0, 12).toString('ascii');
+    if (head.startsWith('RIFF') && head.indexOf('WEBP') !== -1) return true;
+  }
+  return false;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -80,6 +94,9 @@ router.post('/', authMiddleware.isAdmin, upload.single('photo'), async function(
 
     let photoKey = null;
     if (req.file) {
+      if (!isRealImage(req.file.buffer, req.file.mimetype)) {
+        return res.status(400).json({ error: 'File is not a valid image' });
+      }
       photoKey = 'aircraft/' + uuid.v4() + path.extname(req.file.originalname);
       await r2.uploadFile(photoKey, req.file.buffer, req.file.mimetype);
     }
@@ -119,7 +136,9 @@ router.put('/:id', authMiddleware.isAdmin, upload.single('photo'), async functio
     if (req.body.is_available !== undefined) { updates.push('is_available = ?'); args.push(req.body.is_available === 'false' ? 0 : 1); }
 
     if (req.file) {
-      // Delete old photo from R2
+      if (!isRealImage(req.file.buffer, req.file.mimetype)) {
+        return res.status(400).json({ error: 'File is not a valid image' });
+      }
       if (existing.rows[0].photo_filename) {
         try { await r2.deleteFile(existing.rows[0].photo_filename); } catch (e) { /* ignore */ }
       }
