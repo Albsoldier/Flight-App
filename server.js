@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const router = express.Router();
-const database = require('../database');
+const database = require('./database');
 const authMiddleware = require('../middleware/auth');
 
 function isStrongPassword(pw) {
