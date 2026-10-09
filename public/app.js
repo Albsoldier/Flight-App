@@ -10,6 +10,7 @@ var socket = null;
 var aircraftCache = [];
 var notamCache = [];
 var materialFoldersState = {};
+var rentalRequestsCache = [];
 
 function api(path, options) {
   options = options || {};
@@ -249,6 +250,20 @@ function initSocket() {
       else if (evt.type === 'stop') toast('🛬 ' + evt.pilotName + ' landed (' + evt.duration + ' h)', 'success');
       if (currentUser && currentUser.role === 'admin') loadAllLogs();
     });
+    socket.on('rental-event', function(evt) {
+      if (!evt) return;
+      if (evt.type === 'new-request') {
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
+          toast('📝 ' + evt.requesterName + ' requested ' + evt.aircraftTail, 'info');
+          loadRentals();
+        }
+      } else if (evt.type === 'reviewed') {
+        if (currentUser && currentUser.id === evt.requesterId) {
+          toast('Your rental request was ' + evt.status, evt.status === 'approved' ? 'success' : 'error');
+          loadMyRentals();
+        }
+      }
+    });
   } catch (e) { /* ignore */ }
 }
 
@@ -380,6 +395,17 @@ function setupDashboard() {
   if (plBtn && !plBtn.dataset.bound) {
     plBtn.dataset.bound = '1';
     plBtn.addEventListener('click', printLogbook);
+  }
+
+  var rrBtn = document.getElementById('refreshRentals');
+  if (rrBtn && !rrBtn.dataset.bound) {
+    rrBtn.dataset.bound = '1';
+    rrBtn.addEventListener('click', loadRentals);
+  }
+  var rmrBtn = document.getElementById('refreshMyRentals');
+  if (rmrBtn && !rmrBtn.dataset.bound) {
+    rmrBtn.dataset.bound = '1';
+    rmrBtn.addEventListener('click', loadMyRentals);
   }
 
   if (isAdmin) {
@@ -514,6 +540,8 @@ function setupDashboard() {
   loadAircraft();
   loadNotams();
   loadWaypoints();
+  loadMyRentals();
+  if (canManage) loadRentals();
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
@@ -1309,13 +1337,17 @@ function renderAircraft() {
     html += '<div class="aircraft-model">' + escapeHtml(ac.model) + '</div>';
     if (ac.description) html += '<div class="aircraft-description">' + escapeHtml(ac.description) + '</div>';
     html += '<div class="aircraft-rate">$' + Number(ac.hourly_rate).toLocaleString() + ' <span>/ hour</span></div>';
+    html += '<div class="aircraft-actions">';
+    if (ac.is_available === 1) {
+      var safeLabel = (ac.tail_number + ' — ' + ac.model).replace(/'/g, '&#39;');
+      html += '<button class="btn-small btn-download" onclick="openRentalRequestModal(' + ac.id + ', \'' + safeLabel + '\')">📝 Request Rental</button>';
+    }
     if (isAdmin) {
       var safeTail = escapeHtml(ac.tail_number).replace(/'/g, '&#39;');
-      html += '<div class="aircraft-actions">';
       html += '<button class="btn-secondary btn-small" onclick="editAircraft(' + ac.id + ')">Edit</button> ';
       html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + safeTail + '\')">Delete</button>';
-      html += '</div>';
     }
+    html += '</div>';
     html += '</div></div>';
   }
 
@@ -1382,6 +1414,209 @@ function deleteAircraft(id, tail) {
     loadAircraft();
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
+
+// ============================================
+// RENTAL REQUESTS
+// ============================================
+function openRentalRequestModal(aircraftId, aircraftLabel) {
+  document.getElementById('rentalAircraftId').value = aircraftId;
+  document.getElementById('rentalAircraftLabel').textContent = aircraftLabel;
+
+  var now = new Date();
+  now.setHours(now.getHours() + 1);
+  now.setMinutes(0);
+  var iso = now.toISOString().slice(0, 16);
+  document.getElementById('rentalStartDate').value = iso;
+
+  document.getElementById('rentalDuration').value = 2;
+  document.getElementById('rentalNotes').value = '';
+  document.getElementById('rentalRequestError').style.display = 'none';
+  document.getElementById('rentalRequestModal').style.display = 'flex';
+}
+
+function closeRentalRequestModal() {
+  document.getElementById('rentalRequestModal').style.display = 'none';
+}
+
+function submitRentalRequest() {
+  var aircraftId = parseInt(document.getElementById('rentalAircraftId').value);
+  var startDate = document.getElementById('rentalStartDate').value;
+  var duration = parseFloat(document.getElementById('rentalDuration').value);
+  var notes = document.getElementById('rentalNotes').value.trim();
+  var errEl = document.getElementById('rentalRequestError');
+  var btn = document.getElementById('rentalSubmitBtn');
+
+  if (!startDate || !duration) {
+    errEl.textContent = 'Start date and duration are required';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  api('/api/rentals', {
+    method: 'POST',
+    body: JSON.stringify({
+      aircraft_id: aircraftId,
+      start_date: startDate,
+      duration_hours: duration,
+      notes: notes
+    })
+  }).then(function() {
+    showMessage('Rental request submitted', 'success');
+    closeRentalRequestModal();
+    loadMyRentals();
+  }).catch(function(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }).then(function() {
+    btn.disabled = false;
+  });
+}
+
+function loadMyRentals() {
+  var el = document.getElementById('myRentalsList');
+  if (!el) return;
+  api('/api/rentals/my').then(function(data) {
+    var requests = data.requests || [];
+    if (requests.length === 0) {
+      el.innerHTML = '<p class="muted">You have no rental requests yet.</p>';
+      return;
+    }
+    el.innerHTML = renderRentalList(requests, false);
+  }).catch(function(err) {
+    el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function loadRentals() {
+  var el = document.getElementById('rentalsList');
+  if (!el) return;
+  api('/api/rentals/all').then(function(data) {
+    rentalRequestsCache = data.requests || [];
+    if (rentalRequestsCache.length === 0) {
+      el.innerHTML = '<p class="muted">No rental requests yet.</p>';
+      return;
+    }
+    el.innerHTML = renderRentalList(rentalRequestsCache, true);
+  }).catch(function(err) {
+    el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderRentalList(requests, isReviewer) {
+  var html = '<div class="rental-list">';
+  for (var i = 0; i < requests.length; i++) {
+    var r = requests[i];
+    var statusClass = 'rental-status-' + r.status;
+    var statusLabel = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+
+    html += '<div class="rental-card ' + statusClass + '">';
+
+    html += '<div class="rental-header">';
+    html += '<div>';
+    html += '<div class="rental-aircraft">' + escapeHtml(r.tail_number) + ' <span class="rental-model">' + escapeHtml(r.model) + '</span></div>';
+    if (isReviewer) {
+      html += '<div class="rental-requester">Requested by <strong>' + escapeHtml(r.requester_name) + '</strong> (' + escapeHtml(r.requester_role) + ')</div>';
+    }
+    html += '</div>';
+    html += '<span class="rental-badge ' + statusClass + '">' + statusLabel + '</span>';
+    html += '</div>';
+
+    html += '<div class="rental-details">';
+    html += '<span>📅 ' + fmtDate(r.start_date) + '</span>';
+    html += '<span>⏱️ ' + r.duration_hours + ' h</span>';
+    if (r.hourly_rate) html += '<span>💵 $' + Number(r.hourly_rate).toLocaleString() + '/h</span>';
+    html += '</div>';
+
+    if (r.notes) {
+      html += '<div class="rental-notes">' + escapeHtml(r.notes) + '</div>';
+    }
+
+    if (r.review_notes) {
+      html += '<div class="rental-review-notes"><strong>Reviewer notes:</strong> ' + escapeHtml(r.review_notes) + '</div>';
+    }
+
+    if (r.status === 'pending') {
+      html += '<div class="rental-actions">';
+      if (isReviewer) {
+        html += '<button class="btn-small btn-secondary" onclick="openRentalReviewModal(' + r.id + ')">Review</button>';
+      } else {
+        html += '<button class="btn-small btn-danger" onclick="cancelRentalRequest(' + r.id + ')">Cancel Request</button>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function openRentalReviewModal(requestId) {
+  var r = null;
+  for (var i = 0; i < rentalRequestsCache.length; i++) {
+    if (rentalRequestsCache[i].id === requestId) { r = rentalRequestsCache[i]; break; }
+  }
+  if (!r) return;
+
+  document.getElementById('reviewRentalId').value = requestId;
+  document.getElementById('reviewRentalDetails').innerHTML =
+    '<p><strong>' + escapeHtml(r.requester_name) + '</strong> wants to rent <strong>' + escapeHtml(r.tail_number) + '</strong> (' + escapeHtml(r.model) + ')</p>' +
+    '<p class="muted" style="margin-top:8px;">📅 ' + fmtDate(r.start_date) + ' · ⏱️ ' + r.duration_hours + ' h</p>' +
+    (r.notes ? '<p class="muted" style="margin-top:8px;"><em>"' + escapeHtml(r.notes) + '"</em></p>' : '');
+
+  document.getElementById('reviewRentalNotes').value = '';
+  document.getElementById('rentalReviewError').style.display = 'none';
+  document.getElementById('rentalReviewModal').style.display = 'flex';
+}
+
+function closeRentalReviewModal() {
+  document.getElementById('rentalReviewModal').style.display = 'none';
+}
+
+function reviewRentalRequest(status) {
+  var id = document.getElementById('reviewRentalId').value;
+  var notes = document.getElementById('reviewRentalNotes').value.trim();
+  var errEl = document.getElementById('rentalReviewError');
+  var approveBtn = document.getElementById('rentalApproveBtn');
+  var denyBtn = document.getElementById('rentalDenyBtn');
+
+  approveBtn.disabled = true;
+  denyBtn.disabled = true;
+
+  api('/api/rentals/' + id, {
+    method: 'PUT',
+    body: JSON.stringify({ status: status, review_notes: notes })
+  }).then(function() {
+    showMessage('Request ' + status, 'success');
+    closeRentalReviewModal();
+    loadRentals();
+  }).catch(function(err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }).then(function() {
+    approveBtn.disabled = false;
+    denyBtn.disabled = false;
+  });
+}
+
+function cancelRentalRequest(id) {
+  if (!confirm('Cancel this rental request?')) return;
+  api('/api/rentals/' + id, { method: 'DELETE' }).then(function() {
+    showMessage('Request cancelled', 'success');
+    loadMyRentals();
+  }).catch(function(err) {
+    showMessage(err.message, 'error');
+  });
+}
+
+window.openRentalRequestModal = openRentalRequestModal;
+window.closeRentalRequestModal = closeRentalRequestModal;
+window.submitRentalRequest = submitRentalRequest;
+window.openRentalReviewModal = openRentalReviewModal;
+window.closeRentalReviewModal = closeRentalReviewModal;
+window.reviewRentalRequest = reviewRentalRequest;
+window.cancelRentalRequest = cancelRentalRequest;
 
 // ============================================
 // NOTAMS
@@ -1812,23 +2047,8 @@ function saveUserEdit() {
     errEl.style.display = 'block';
     return;
   }
-    if (password && password.length < 6) {
+  if (password && password.length < 6) {
     errEl.textContent = 'Password must be at least 6 characters';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (password && !/[A-Z]/.test(password)) {
-    errEl.textContent = 'Password must contain an uppercase letter';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (password && !/[a-z]/.test(password)) {
-    errEl.textContent = 'Password must contain a lowercase letter';
-    errEl.style.display = 'block';
-    return;
-  }
-  if (password && !/[0-9]/.test(password)) {
-    errEl.textContent = 'Password must contain a number';
     errEl.style.display = 'block';
     return;
   }
