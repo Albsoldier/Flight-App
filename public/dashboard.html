@@ -83,7 +83,7 @@
         <span class="brand-title">San Andreas Aviation</span>
         <span class="brand-subtitle">Flight Tracker</span>
       </div>
-      <span class="n-number">SAAA</span>
+      <span class="n-number">N172SA</span>
     </div>
 
     <div class="topbar-center">
@@ -312,6 +312,30 @@
       </div>
 
       <div id="aircraftList" class="aircraft-grid"></div>
+    </section>
+
+    <!-- RENTAL REQUESTS (staff only) -->
+    <section class="card instructor-only" id="section-rentals" style="display:none;">
+      <h2>📋 Rental Requests</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Approve or deny rental requests from students and instructors.
+      </p>
+      <div class="log-actions">
+        <button id="refreshRentals" class="btn-secondary">Refresh</button>
+      </div>
+      <div id="rentalsList"></div>
+    </section>
+
+    <!-- MY RENTAL REQUESTS -->
+    <section class="card" id="section-myrentals">
+      <h2>📄 My Rental Requests</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Track the status of your aircraft rental requests.
+      </p>
+      <div class="log-actions">
+        <button id="refreshMyRentals" class="btn-secondary">Refresh</button>
+      </div>
+      <div id="myRentalsList"></div>
     </section>
 
     <!-- STUDY MATERIALS -->
@@ -555,13 +579,11 @@
           Certificates for <strong id="certsUserHeading">user</strong>
         </p>
 
-        <!-- Current certificates -->
         <h4 style="margin-bottom:8px; color:#38bdf8; font-size:0.9rem;">Currently Held</h4>
         <div id="certsCurrentList" class="certs-list">
           <p class="muted">Loading...</p>
         </div>
 
-        <!-- Add a new certificate -->
         <h4 style="margin:16px 0 8px; color:#38bdf8; font-size:0.9rem;">Add Certificate</h4>
         <div class="field-row">
           <div class="field">
@@ -579,6 +601,63 @@
 
         <div class="modal-actions">
           <button class="btn-secondary" onclick="closeCertsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUEST RENTAL MODAL -->
+  <div id="rentalRequestModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Request Aircraft Rental</h3>
+        <button class="modal-close" onclick="closeRentalRequestModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="rentalAircraftId">
+        <p class="muted" style="margin-bottom:16px;">
+          Requesting: <strong id="rentalAircraftLabel" style="color:#38bdf8;">—</strong>
+        </p>
+        <div class="field">
+          <label>Start Date & Time</label>
+          <input type="datetime-local" id="rentalStartDate" required>
+        </div>
+        <div class="field">
+          <label>Duration (hours)</label>
+          <input type="number" id="rentalDuration" min="0.5" max="24" step="0.5" value="2" required>
+        </div>
+        <div class="field">
+          <label>Notes (optional)</label>
+          <textarea id="rentalNotes" rows="2" placeholder="Purpose of flight, planned route, etc."></textarea>
+        </div>
+        <div id="rentalRequestError" class="message error" style="display:none;"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeRentalRequestModal()">Cancel</button>
+          <button id="rentalSubmitBtn" onclick="submitRentalRequest()">Submit Request</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW RENTAL MODAL -->
+  <div id="rentalReviewModal" class="modal-backdrop" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Review Rental Request</h3>
+        <button class="modal-close" onclick="closeRentalReviewModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="reviewRentalId">
+        <div id="reviewRentalDetails" style="margin-bottom:16px;"></div>
+        <div class="field">
+          <label>Notes (optional — shown to requester)</label>
+          <textarea id="reviewRentalNotes" rows="2" placeholder="Reason for approval / denial..."></textarea>
+        </div>
+        <div id="rentalReviewError" class="message error" style="display:none;"></div>
+        <div class="modal-actions">
+          <button class="btn-secondary" onclick="closeRentalReviewModal()">Cancel</button>
+          <button id="rentalDenyBtn" class="btn-danger" onclick="reviewRentalRequest('denied')">Deny</button>
+          <button id="rentalApproveBtn" onclick="reviewRentalRequest('approved')">Approve</button>
         </div>
       </div>
     </div>
