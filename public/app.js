@@ -1812,8 +1812,23 @@ function saveUserEdit() {
     errEl.style.display = 'block';
     return;
   }
-  if (password && password.length < 6) {
-    errEl.textContent = 'Password must be at least 6 characters';
+    if (password && password.length < 10) {
+    errEl.textContent = 'Password must be at least 10 characters';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password && !/[A-Z]/.test(password)) {
+    errEl.textContent = 'Password must contain an uppercase letter';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password && !/[a-z]/.test(password)) {
+    errEl.textContent = 'Password must contain a lowercase letter';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (password && !/[0-9]/.test(password)) {
+    errEl.textContent = 'Password must contain a number';
     errEl.style.display = 'block';
     return;
   }
