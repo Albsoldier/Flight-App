@@ -100,19 +100,31 @@ router.get('/my', async function(req, res) {
 router.get('/all', authMiddleware.isInstructor, async function(req, res) {
   try {
     const result = await database.db.execute({
-      sql: `SELECT r.*, a.tail_number, a.model, a.hourly_rate,
+      sql: `SELECT r.id, r.aircraft_id, r.requester_id, r.start_date, r.duration_hours,
+                   r.notes, r.status, r.reviewed_by, r.reviewed_at, r.review_notes, r.created_at,
+                   a.tail_number, a.model, a.hourly_rate,
                    u.full_name AS requester_name, u.username AS requester_username, u.role AS requester_role,
                    rv.full_name AS reviewer_name
             FROM rental_requests r
-            JOIN aircraft a ON r.aircraft_id = a.id
-            JOIN users u ON r.requester_id = u.id
-            LEFT JOIN users rv ON r.reviewed_by = rv.id
-            ORDER BY
-              CASE r.status WHEN 'pending' THEN 1 WHEN 'approved' THEN 2 WHEN 'denied' THEN 3 ELSE 4 END,
-              r.created_at DESC`
+            LEFT JOIN aircraft a ON r.aircraft_id = a.id
+            LEFT JOIN users u ON r.requester_id = u.id
+            LEFT JOIN users rv ON r.reviewed_by = rv.id`,
+      args: []
     });
-    res.json({ requests: result.rows });
+
+    const order = { pending: 1, approved: 2, denied: 3, cancelled: 4 };
+    const sorted = result.rows.slice().sort(function(a, b) {
+      var oa = order[a.status] || 99;
+      var ob = order[b.status] || 99;
+      if (oa !== ob) return oa - ob;
+      var da = new Date(a.created_at).getTime();
+      var db = new Date(b.created_at).getTime();
+      return db - da;
+    });
+
+    res.json({ requests: sorted });
   } catch (err) {
+    console.error('=== RENTALS /ALL ERROR ===');
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
