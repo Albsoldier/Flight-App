@@ -7,11 +7,21 @@ const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const r2 = require('../r2-storage');
 
-// Use memory storage — we'll push to R2 instead of local disk
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }
 });
+
+// Block obviously dangerous extensions
+const BLOCKED_EXT = ['.exe', '.bat', '.cmd', '.sh', '.ps1', '.scr', '.com', '.jar', '.msi', '.vbs', '.js'];
+function isBlockedExtension(filename) {
+  if (!filename) return false;
+  var lower = String(filename).toLowerCase();
+  for (var i = 0; i < BLOCKED_EXT.length; i++) {
+    if (lower.endsWith(BLOCKED_EXT[i])) return true;
+  }
+  return false;
+}
 
 router.use(authMiddleware.isAuthenticated);
 
@@ -34,6 +44,10 @@ router.post('/', authMiddleware.isInstructor, upload.single('file'), async funct
   const title = req.body.title;
   if (!title) return res.status(400).json({ error: 'Title required' });
 
+  if (isBlockedExtension(req.file.originalname)) {
+    return res.status(400).json({ error: 'File type not allowed' });
+  }
+
   try {
     const fileKey = 'materials/' + uuid.v4() + path.extname(req.file.originalname);
 
@@ -45,7 +59,7 @@ router.post('/', authMiddleware.isInstructor, upload.single('file'), async funct
         title,
         req.body.description || null,
         req.file.originalname,
-        fileKey,            // store the R2 key as file_path
+        fileKey,
         req.file.size,
         req.file.mimetype,
         req.body.category || 'General',
@@ -60,7 +74,7 @@ router.post('/', authMiddleware.isInstructor, upload.single('file'), async funct
   }
 });
 
-// DOWNLOAD — generates a signed URL and redirects
+// DOWNLOAD
 router.get('/:id/download', async function(req, res) {
   try {
     const result = await database.db.execute({
