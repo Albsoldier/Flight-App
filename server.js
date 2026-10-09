@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const router = express.Router();
 const database = require('./database');
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('./middleware/auth');
 
 function isStrongPassword(pw) {
   if (!pw || pw.length < 10) return 'Password must be at least 10 characters';
