@@ -17,7 +17,6 @@ async function initSchema() {
       email TEXT,
       phone TEXT,
       license_number TEXT,
-      avatar_filename TEXT,
       total_hours REAL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_by INTEGER,
