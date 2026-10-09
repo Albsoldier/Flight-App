@@ -344,7 +344,6 @@ router.get('/gtaw/callback', async function(req, res) {
       ? 'https://ucp-fr.gta.world'
       : 'https://ucp.gta.world';
 
-    // Exchange code for token
     const tokenResponse = await fetch(baseUrl + '/oauth/token', {
       method: 'POST',
       headers: {
@@ -369,7 +368,6 @@ router.get('/gtaw/callback', async function(req, res) {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    // Fetch user profile
     const userInfoUrl = baseUrl + '/api/user';
 
     const userResponse = await fetch(userInfoUrl, {
