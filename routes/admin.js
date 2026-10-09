@@ -8,28 +8,6 @@ const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const r2 = require('../r2-storage');
 
-function isStrongPassword(pw) {
-  if (!pw || pw.length < 10) return 'Password must be at least 10 characters';
-  if (!/[A-Z]/.test(pw)) return 'Password must contain an uppercase letter';
-  if (!/[a-z]/.test(pw)) return 'Password must contain a lowercase letter';
-  if (!/[0-9]/.test(pw)) return 'Password must contain a number';
-  return null;
-}
-
-function isRealImage(buffer, mimetype) {
-  if (!buffer || buffer.length < 4) return false;
-  var hex = buffer.slice(0, 4).toString('hex').toUpperCase();
-
-  if (mimetype === 'image/jpeg' && hex.startsWith('FFD8FF')) return true;
-  if (mimetype === 'image/png' && hex.startsWith('89504E47')) return true;
-  if (mimetype === 'image/gif' && hex.startsWith('474946')) return true;
-  if (mimetype === 'image/webp') {
-    var head = buffer.slice(0, 12).toString('ascii');
-    if (head.startsWith('RIFF') && head.indexOf('WEBP') !== -1) return true;
-  }
-  return false;
-}
-
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -61,8 +39,9 @@ router.post('/users', authMiddleware.isInstructor, async function(req, res) {
   if (req.session.role === 'instructor' && role !== 'student') {
     return res.status(403).json({ error: 'Instructors can only create students' });
   }
-  const pwErr = isStrongPassword(password);
-  if (pwErr) return res.status(400).json({ error: pwErr });
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
 
   try {
     const hashed = bcrypt.hashSync(password, 10);
@@ -125,18 +104,22 @@ router.put('/users/:id', authMiddleware.isInstructor, async function(req, res) {
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
+    // Instructor can only edit students
     if (req.session.role === 'instructor' && user.role !== 'student') {
       return res.status(403).json({ error: 'Instructors can only edit students' });
     }
 
+    // Admin cannot edit other admins
     if (req.session.role === 'admin' && user.role === 'admin' && user.id !== req.session.userId) {
       return res.status(403).json({ error: 'Cannot modify other admins' });
     }
 
+    // Only admins can change roles
     if (role !== undefined && req.session.role !== 'admin') {
       return res.status(403).json({ error: 'Only admins can change roles' });
     }
 
+    // Validate role if provided
     if (role !== undefined && role !== 'student' && role !== 'instructor') {
       return res.status(400).json({ error: 'Role must be student or instructor' });
     }
@@ -150,8 +133,7 @@ router.put('/users/:id', authMiddleware.isInstructor, async function(req, res) {
     if (isActive !== undefined) { updates.push('is_active = ?'); args.push(isActive ? 1 : 0); }
     if (role !== undefined) { updates.push('role = ?'); args.push(role); }
     if (password) {
-      const pwErr = isStrongPassword(password);
-      if (pwErr) return res.status(400).json({ error: pwErr });
+      if (password.length < 6) return res.status(400).json({ error: 'Password too short' });
       updates.push('password = ?');
       args.push(bcrypt.hashSync(password, 10));
     }
@@ -228,10 +210,6 @@ router.post('/users/:id/avatar', authMiddleware.isAdmin, avatarUpload.single('av
   try {
     const id = req.params.id;
     if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
-
-    if (!isRealImage(req.file.buffer, req.file.mimetype)) {
-      return res.status(400).json({ error: 'File is not a valid image' });
-    }
 
     const userResult = await database.db.execute({
       sql: 'SELECT id, avatar_filename FROM users WHERE id = ?',
