@@ -1812,8 +1812,8 @@ function saveUserEdit() {
     errEl.style.display = 'block';
     return;
   }
-    if (password && password.length < 10) {
-    errEl.textContent = 'Password must be at least 10 characters';
+    if (password && password.length < 6) {
+    errEl.textContent = 'Password must be at least 6 characters';
     errEl.style.display = 'block';
     return;
   }
