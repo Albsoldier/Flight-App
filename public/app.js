@@ -1505,6 +1505,7 @@ function loadRentals() {
 
 function renderRentalList(requests, isReviewer) {
   var html = '<div class="rental-list">';
+
   for (var i = 0; i < requests.length; i++) {
     var r = requests[i];
     var statusClass = 'rental-status-' + r.status;
@@ -1512,42 +1513,62 @@ function renderRentalList(requests, isReviewer) {
 
     html += '<div class="rental-card ' + statusClass + '">';
 
-    html += '<div class="rental-header">';
-    html += '<div>';
-    html += '<div class="rental-aircraft">' + escapeHtml(r.tail_number) + ' <span class="rental-model">' + escapeHtml(r.model) + '</span></div>';
-    if (isReviewer) {
-      html += '<div class="rental-requester">Requested by <strong>' + escapeHtml(r.requester_name) + '</strong> (' + escapeHtml(r.requester_role) + ')</div>';
+    // Header: tail + model on left, status badge on right
+    html += '  <div class="rental-card-header">';
+    html += '    <div class="rental-card-titles">';
+    html += '      <div class="rental-aircraft">' + escapeHtml(r.tail_number) + '</div>';
+    html += '      <div class="rental-model">' + escapeHtml(r.model) + '</div>';
+    html += '    </div>';
+    html += '    <span class="rental-badge ' + statusClass + '">' + statusLabel + '</span>';
+    html += '  </div>';
+
+    // Requester line (only for reviewer view)
+    if (isReviewer && r.requester_name) {
+      html += '  <div class="rental-requester">';
+      html += '    Requested by <strong>' + escapeHtml(r.requester_name) + '</strong>';
+      html += '    <span class="rental-role-tag">' + escapeHtml(r.requester_role || 'student') + '</span>';
+      html += '  </div>';
     }
-    html += '</div>';
-    html += '<span class="rental-badge ' + statusClass + '">' + statusLabel + '</span>';
-    html += '</div>';
 
-    html += '<div class="rental-details">';
-    html += '<span>📅 ' + fmtDate(r.start_date) + '</span>';
-    html += '<span>⏱️ ' + r.duration_hours + ' h</span>';
-    if (r.hourly_rate) html += '<span>💵 $' + Number(r.hourly_rate).toLocaleString() + '/h</span>';
-    html += '</div>';
+    // Details as chips
+    html += '  <div class="rental-details">';
+    html += '    <span class="rental-detail-chip">📅 ' + fmtDate(r.start_date) + '</span>';
+    html += '    <span class="rental-detail-chip">⏱️ ' + r.duration_hours + ' h</span>';
+    if (r.hourly_rate) {
+      html += '    <span class="rental-detail-chip">💵 $' + Number(r.hourly_rate).toLocaleString() + '/h</span>';
+    }
+    html += '  </div>';
 
+    // Requester notes
     if (r.notes) {
-      html += '<div class="rental-notes">' + escapeHtml(r.notes) + '</div>';
+      html += '  <div class="rental-notes">';
+      html += '    <span class="rental-notes-label">Requester notes</span>';
+      html += '    <div class="rental-notes-body">' + escapeHtml(r.notes) + '</div>';
+      html += '  </div>';
     }
 
+    // Reviewer notes
     if (r.review_notes) {
-      html += '<div class="rental-review-notes"><strong>Reviewer notes:</strong> ' + escapeHtml(r.review_notes) + '</div>';
+      html += '  <div class="rental-review-notes">';
+      html += '    <span class="rental-notes-label">Reviewer notes</span>';
+      html += '    <div class="rental-notes-body">' + escapeHtml(r.review_notes) + '</div>';
+      html += '  </div>';
     }
 
+    // Actions
     if (r.status === 'pending') {
-      html += '<div class="rental-actions">';
+      html += '  <div class="rental-actions">';
       if (isReviewer) {
-        html += '<button class="btn-small btn-secondary" onclick="openRentalReviewModal(' + r.id + ')">Review</button>';
+        html += '    <button class="btn-small btn-secondary" onclick="openRentalReviewModal(' + r.id + ')">Review</button>';
       } else {
-        html += '<button class="btn-small btn-danger" onclick="cancelRentalRequest(' + r.id + ')">Cancel Request</button>';
+        html += '    <button class="btn-small btn-danger" onclick="cancelRentalRequest(' + r.id + ')">Cancel Request</button>';
       }
-      html += '</div>';
+      html += '  </div>';
     }
 
     html += '</div>';
   }
+
   html += '</div>';
   return html;
 }
