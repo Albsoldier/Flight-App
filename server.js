@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
+const TursoStore = require('./session-store');
 require('dotenv').config();
 
 const app = express();
@@ -18,15 +19,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
+  store: new TursoStore(),
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
   proxy: true,
+  rolling: true,
   cookie: {
     secure: true,
     httpOnly: true,
     sameSite: 'none',
-    maxAge: 1000 * 60 * 60 * 8
+    maxAge: 1000 * 60 * 60 * 24 * 30
   }
 }));
 
