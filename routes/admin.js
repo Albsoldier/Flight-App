@@ -7,6 +7,7 @@ const uuid = require('uuid');
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const r2 = require('../r2-storage');
+const notif = require('./notifications');
 
 const avatarUpload = multer({
   storage: multer.memoryStorage(),
@@ -49,7 +50,22 @@ router.post('/users', authMiddleware.isInstructor, async function(req, res) {
       sql: 'INSERT INTO users (username, password, role, full_name, email, phone, license_number, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       args: [username, hashed, role, fullName, email || null, phone || null, licenseNumber || null, req.session.userId]
     });
-    res.json({ success: true, userId: Number(result.lastInsertRowid) });
+
+    const newUserId = Number(result.lastInsertRowid);
+
+    await notif.createNotification(
+      database.db,
+      newUserId,
+      'welcome',
+      'Welcome to SAAA Flight Tracker',
+      'Your account has been created. Set a display name and explore your dashboard.',
+      'section-dashboard'
+    );
+
+    const io = req.app.get('io');
+    if (io) io.emit('notification-event', {});
+
+    res.json({ success: true, userId: newUserId });
   } catch (err) {
     if (err.message && err.message.indexOf('UNIQUE') !== -1) {
       return res.status(400).json({ error: 'Username already exists' });
@@ -104,22 +120,18 @@ router.put('/users/:id', authMiddleware.isInstructor, async function(req, res) {
     const user = userResult.rows[0];
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Instructor can only edit students
     if (req.session.role === 'instructor' && user.role !== 'student') {
       return res.status(403).json({ error: 'Instructors can only edit students' });
     }
 
-    // Admin cannot edit other admins
     if (req.session.role === 'admin' && user.role === 'admin' && user.id !== req.session.userId) {
       return res.status(403).json({ error: 'Cannot modify other admins' });
     }
 
-    // Only admins can change roles
     if (role !== undefined && req.session.role !== 'admin') {
       return res.status(403).json({ error: 'Only admins can change roles' });
     }
 
-    // Validate role if provided
     if (role !== undefined && role !== 'student' && role !== 'instructor') {
       return res.status(400).json({ error: 'Role must be student or instructor' });
     }
@@ -197,6 +209,7 @@ router.delete('/users/:id/hard', authMiddleware.isAdmin, async function(req, res
 
     await database.db.execute({ sql: 'DELETE FROM flight_sessions WHERE student_id = ?', args: [id] });
     await database.db.execute({ sql: 'DELETE FROM active_sessions WHERE user_id = ?', args: [id] });
+    await database.db.execute({ sql: 'DELETE FROM notifications WHERE user_id = ?', args: [id] });
     await database.db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [id] });
     res.json({ success: true, message: 'User deleted permanently' });
   } catch (err) {
