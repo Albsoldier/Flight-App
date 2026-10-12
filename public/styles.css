@@ -3156,3 +3156,104 @@ html[data-theme="light"] .gtaw-btn,
 body.theme-light .gtaw-btn {
   background: linear-gradient(180deg, #2d7a3f 0%, #1a5c2a 100%);
 }
+
+/* ============================================
+   NOTIFICATIONS BELL
+   ============================================ */
+.notif-wrapper {
+  position: relative;
+}
+
+.notif-bell {
+  position: relative;
+  padding: 6px 12px;
+}
+
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6), 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(15, 23, 42, 0.9);
+  animation: notifPulse 2s ease-in-out infinite;
+  font-family: system-ui, sans-serif;
+  line-height: 1;
+}
+
+@keyframes notifPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.notif-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 360px;
+  max-height: 480px;
+  background: rgba(15, 23, 42, 0.98);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(56, 189, 248, 0.15);
+  backdrop-filter: blur(20px);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: notifSlideIn 0.2s ease;
+}
+
+@keyframes notifSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.notif-dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #38bdf8;
+}
+
+.notif-mark-all {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  transition: background 0.15s, color 0.15s;
+}
+
+.notif-mark-all:hover {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
+
+.notif-list {
+  flex: 1;
+  overflow-y
