@@ -83,7 +83,7 @@
         <span class="brand-title">San Andreas Aviation</span>
         <span class="brand-subtitle">Flight Tracker</span>
       </div>
-      <span class="n-number">SAAA</span>
+      <span class="n-number">N172SA</span>
     </div>
 
     <div class="topbar-center">
@@ -681,6 +681,42 @@
           <button id="rentalDenyBtn" class="btn-danger" onclick="reviewRentalRequest('denied')">Deny</button>
           <button id="rentalApproveBtn" onclick="reviewRentalRequest('approved')">Approve</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AIRCRAFT SCHEDULE MODAL -->
+  <div id="scheduleModal" class="modal-backdrop" style="display:none;">
+    <div class="modal" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 id="scheduleTitle">Aircraft Schedule</h3>
+        <button class="modal-close" onclick="closeScheduleModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="scheduleAircraftId">
+
+        <div class="schedule-nav">
+          <button class="schedule-nav-btn" onclick="shiftScheduleMonth(-1)">‹</button>
+          <span id="scheduleMonthLabel" class="schedule-month-label">—</span>
+          <button class="schedule-nav-btn" onclick="shiftScheduleMonth(1)">›</button>
+          <button class="schedule-today-btn" onclick="goToTodaySchedule()">Today</button>
+        </div>
+
+        <div class="schedule-legend">
+          <span class="schedule-legend-item"><span class="schedule-dot approved"></span> Approved</span>
+          <span class="schedule-legend-item"><span class="schedule-dot pending"></span> Pending</span>
+          <span class="schedule-legend-item"><span class="schedule-dot today"></span> Today</span>
+        </div>
+
+        <div class="calendar">
+          <div class="calendar-header">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+            <span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <div id="scheduleDayDetails" class="schedule-day-details" style="display:none;"></div>
       </div>
     </div>
   </div>
