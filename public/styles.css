@@ -3424,3 +3424,121 @@ body.theme-light .notif-badge {
     max-height: 70vh;
   }
 }
+
+/* ============================================
+   PAGINATION
+   ============================================ */
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 10px;
+}
+
+.pager-info {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.02em;
+}
+
+.pager-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pager-btn {
+  background: rgba(51, 65, 85, 0.6);
+  color: #cbd5e1;
+  border: 1px solid rgba(71, 85, 105, 0.6);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 0;
+  box-shadow: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.pager-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #7dd3fc;
+  transform: none;
+  filter: none;
+}
+
+.pager-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pager-page {
+  font-family: 'Courier New', monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #38bdf8;
+  padding: 0 8px;
+  letter-spacing: 0.05em;
+}
+
+.pager-perpage {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  width: auto;
+}
+
+.pager-perpage:focus { outline: none; border-color: #38bdf8; }
+
+/* Light theme */
+html[data-theme="light"] .pager,
+body.theme-light .pager {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+html[data-theme="light"] .pager-info,
+body.theme-light .pager-info { color: #475569; }
+
+html[data-theme="light"] .pager-btn,
+body.theme-light .pager-btn {
+  background: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #1e293b;
+}
+
+html[data-theme="light"] .pager-page,
+body.theme-light .pager-page { color: #0284c7; }
+
+html[data-theme="light"] .pager-perpage,
+body.theme-light .pager-perpage {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #1e293b;
+}
+
+@media (max-width: 640px) {
+  .pager {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pager-controls {
+    justify-content: center;
+  }
+}
