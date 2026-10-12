@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
+const notif = require('./notifications');
 
 router.use(authMiddleware.isAuthenticated);
 
@@ -47,13 +48,22 @@ router.post('/', async function(req, res) {
 
     const newId = Number(insertResult.lastInsertRowid);
 
+    const requesterResult = await database.db.execute({
+      sql: 'SELECT full_name FROM users WHERE id = ?',
+      args: [req.session.userId]
+    });
+    const requesterName = requesterResult.rows[0] ? requesterResult.rows[0].full_name : 'Someone';
+
+    await notif.createNotificationForStaff(
+      database.db,
+      'rental-request',
+      requesterName + ' requested ' + aircraft.tail_number,
+      'Requested ' + durationHours + 'h starting ' + startDate,
+      'section-rentals'
+    );
+
     const io = req.app.get('io');
     if (io) {
-      const requesterResult = await database.db.execute({
-        sql: 'SELECT full_name FROM users WHERE id = ?',
-        args: [req.session.userId]
-      });
-      const requesterName = requesterResult.rows[0] ? requesterResult.rows[0].full_name : 'Someone';
       io.emit('rental-event', {
         type: 'new-request',
         requestId: newId,
@@ -63,6 +73,7 @@ router.post('/', async function(req, res) {
         startDate: startDate,
         durationHours: durationHours
       });
+      io.emit('notification-event', {});
     }
 
     res.json({ success: true, requestId: newId });
@@ -158,6 +169,15 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
       args: [status, req.session.userId, reviewNotes, id]
     });
 
+    await notif.createNotification(
+      database.db,
+      request.requester_id,
+      'rental-' + status,
+      'Your rental request was ' + status,
+      reviewNotes || ('Status: ' + status),
+      'section-myrentals'
+    );
+
     const io = req.app.get('io');
     if (io) {
       io.emit('rental-event', {
@@ -167,6 +187,7 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
         status: status,
         reviewNotes: reviewNotes
       });
+      io.emit('notification-event', {});
     }
 
     res.json({ success: true });
