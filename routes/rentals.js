@@ -41,6 +41,40 @@ router.post('/', async function(req, res) {
       return res.status(400).json({ error: 'You already have a pending request for this aircraft' });
     }
 
+    // Check for schedule conflicts with approved rentals
+    const requestedStart = new Date(String(startDate).replace(' ', 'T'));
+    const requestedEnd = new Date(requestedStart.getTime() + durationHours * 3600 * 1000);
+
+    const existingApproved = await database.db.execute({
+      sql: `SELECT id, start_date, duration_hours, requester_id
+            FROM rental_requests
+            WHERE aircraft_id = ?
+              AND status = 'approved'`,
+      args: [aircraftId]
+    });
+
+    let conflict = null;
+    for (const b of existingApproved.rows) {
+      const bStart = new Date(String(b.start_date).replace(' ', 'T'));
+      const bEnd = new Date(bStart.getTime() + (b.duration_hours || 0) * 3600 * 1000);
+      if (requestedStart < bEnd && requestedEnd > bStart) {
+        conflict = {
+          id: b.id,
+          start: b.start_date,
+          duration: b.duration_hours
+        };
+        break;
+      }
+    }
+
+    if (conflict && !req.body.force) {
+      return res.status(409).json({
+        error: 'Schedule conflict with an approved rental',
+        conflict: conflict,
+        canForce: true
+      });
+    }
+
     const insertResult = await database.db.execute({
       sql: 'INSERT INTO rental_requests (aircraft_id, requester_id, start_date, duration_hours, notes) VALUES (?, ?, ?, ?, ?)',
       args: [aircraftId, req.session.userId, startDate, durationHours, notes]
@@ -224,6 +258,43 @@ router.delete('/:id', async function(req, res) {
     });
 
     res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ============================================
+// GET SCHEDULE FOR ONE AIRCRAFT — any authenticated user
+// ============================================
+router.get('/aircraft/:id', async function(req, res) {
+  try {
+    const aircraftId = parseInt(req.params.id);
+    if (!aircraftId) return res.status(400).json({ error: 'Invalid aircraft ID' });
+
+    const acResult = await database.db.execute({
+      sql: 'SELECT id, tail_number, model, hourly_rate, is_available FROM aircraft WHERE id = ?',
+      args: [aircraftId]
+    });
+    const aircraft = acResult.rows[0];
+    if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
+
+    const result = await database.db.execute({
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.status,
+                   r.requester_id, r.review_notes, r.created_at,
+                   u.full_name AS requester_name, u.role AS requester_role
+            FROM rental_requests r
+            LEFT JOIN users u ON r.requester_id = u.id
+            WHERE r.aircraft_id = ?
+              AND r.status IN ('pending', 'approved')
+            ORDER BY r.start_date ASC`,
+      args: [aircraftId]
+    });
+
+    res.json({
+      aircraft: aircraft,
+      bookings: result.rows
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
