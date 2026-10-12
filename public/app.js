@@ -122,7 +122,6 @@ function renderPager(pagerId, state, onPageChange) {
 
   el.innerHTML = html;
 
-  // Bind events (once per render is fine — replace with cloned nodes would be cleaner, but this works)
   var prevBtn = el.querySelector('[data-action="prev"]');
   var nextBtn = el.querySelector('[data-action="next"]');
   var perPageSel = el.querySelector('[data-action="perpage"]');
@@ -1001,7 +1000,6 @@ function renderAllLogs() {
   var totalHours = 0;
   for (var t = 0; t < filtered.length; t++) totalHours += (filtered[t].duration_hours || 0);
 
-  // Use filtered array for pagination
   paginationState.allLogs.total = filtered.length;
   var totalPages = Math.max(1, Math.ceil(filtered.length / paginationState.allLogs.perPage));
   if (paginationState.allLogs.page > totalPages) paginationState.allLogs.page = totalPages;
@@ -1027,7 +1025,6 @@ function renderAllLogs() {
   html += '</tbody></table>';
   document.getElementById('allLogsList').innerHTML = html;
 
-  // Custom pager (uses filtered list, not allLogsCache)
   renderAllLogsCustomPager(filtered.length, totalPages);
 }
 
@@ -1511,6 +1508,7 @@ function renderAircraft() {
     if (ac.description) html += '<div class="aircraft-description">' + escapeHtml(ac.description) + '</div>';
     html += '<div class="aircraft-rate">$' + Number(ac.hourly_rate).toLocaleString() + ' <span>/ hour</span></div>';
     html += '<div class="aircraft-actions">';
+    html += '<button class="btn-secondary btn-small" onclick="openScheduleModal(' + ac.id + ')">📅 View Schedule</button>';
     if (ac.is_available === 1) {
       var safeLabel = (ac.tail_number + ' — ' + ac.model).replace(/'/g, '&#39;');
       html += '<button class="btn-small btn-download" onclick="openRentalRequestModal(' + ac.id + ', \'' + safeLabel + '\')">📝 Request Rental</button>';
@@ -1611,7 +1609,7 @@ function closeRentalRequestModal() {
   document.getElementById('rentalRequestModal').style.display = 'none';
 }
 
-function submitRentalRequest() {
+function submitRentalRequest(force) {
   var aircraftId = parseInt(document.getElementById('rentalAircraftId').value);
   var startDate = document.getElementById('rentalStartDate').value;
   var duration = parseFloat(document.getElementById('rentalDuration').value);
@@ -1632,17 +1630,28 @@ function submitRentalRequest() {
       aircraft_id: aircraftId,
       start_date: startDate,
       duration_hours: duration,
-      notes: notes
+      notes: notes,
+      force: force === true
     })
   }).then(function() {
     showMessage('Rental request submitted', 'success');
     closeRentalRequestModal();
     loadMyRentals();
   }).catch(function(err) {
-    errEl.textContent = err.message;
-    errEl.style.display = 'block';
+    if (err.message && err.message.indexOf('conflict') !== -1) {
+      if (confirm('⚠️ This overlaps an approved rental on the same aircraft.\n\nSubmit anyway?')) {
+        btn.disabled = false;
+        submitRentalRequest(true);
+        return;
+      }
+      errEl.textContent = 'Cancelled due to schedule conflict';
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    }
   }).then(function() {
-    btn.disabled = false;
+    if (btn) btn.disabled = false;
   });
 }
 
@@ -1828,6 +1837,189 @@ window.openRentalReviewModal = openRentalReviewModal;
 window.closeRentalReviewModal = closeRentalReviewModal;
 window.reviewRentalRequest = reviewRentalRequest;
 window.cancelRentalRequest = cancelRentalRequest;
+
+// ============================================
+// AIRCRAFT SCHEDULE CALENDAR
+// ============================================
+var scheduleState = {
+  aircraftId: null,
+  aircraft: null,
+  bookings: [],
+  year: new Date().getFullYear(),
+  month: new Date().getMonth()
+};
+
+function openScheduleModal(aircraftId) {
+  scheduleState.aircraftId = aircraftId;
+  var today = new Date();
+  scheduleState.year = today.getFullYear();
+  scheduleState.month = today.getMonth();
+
+  document.getElementById('scheduleModal').style.display = 'flex';
+  document.getElementById('scheduleTitle').textContent = 'Loading...';
+  document.getElementById('scheduleDayDetails').style.display = 'none';
+
+  api('/api/rentals/aircraft/' + aircraftId).then(function(data) {
+    scheduleState.aircraft = data.aircraft;
+    scheduleState.bookings = data.bookings || [];
+    document.getElementById('scheduleTitle').textContent =
+      'Schedule — ' + data.aircraft.tail_number + ' (' + data.aircraft.model + ')';
+    renderSchedule();
+  }).catch(function(err) {
+    document.getElementById('scheduleTitle').textContent = 'Schedule';
+    document.getElementById('calendarGrid').innerHTML =
+      '<p class="muted" style="grid-column: 1/-1; padding: 20px; text-align: center;">' +
+      escapeHtml(err.message) + '</p>';
+  });
+}
+
+function closeScheduleModal() {
+  document.getElementById('scheduleModal').style.display = 'none';
+  scheduleState.aircraftId = null;
+  scheduleState.bookings = [];
+}
+
+function shiftScheduleMonth(delta) {
+  scheduleState.month += delta;
+  if (scheduleState.month > 11) { scheduleState.month = 0; scheduleState.year++; }
+  if (scheduleState.month < 0)  { scheduleState.month = 11; scheduleState.year--; }
+  renderSchedule();
+}
+
+function goToTodaySchedule() {
+  var today = new Date();
+  scheduleState.year = today.getFullYear();
+  scheduleState.month = today.getMonth();
+  renderSchedule();
+}
+
+function renderSchedule() {
+  var y = scheduleState.year;
+  var m = scheduleState.month;
+
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('scheduleMonthLabel').textContent = monthNames[m] + ' ' + y;
+
+  var firstDay = new Date(y, m, 1);
+  var startWeekday = firstDay.getDay();
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  var bookingsByDay = {};
+  for (var i = 0; i < scheduleState.bookings.length; i++) {
+    var b = scheduleState.bookings[i];
+    var start = new Date(String(b.start_date).replace(' ', 'T'));
+    var duration = b.duration_hours || 0;
+    var endMs = start.getTime() + duration * 3600 * 1000;
+    var end = new Date(endMs);
+
+    var cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    var lastDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    while (cursor <= lastDay) {
+      var key = dateKey(cursor);
+      if (!bookingsByDay[key]) bookingsByDay[key] = [];
+      bookingsByDay[key].push(b);
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  var today = new Date();
+  var todayKey = dateKey(today);
+
+  var html = '';
+
+  for (var s = 0; s < startWeekday; s++) {
+    html += '<div class="calendar-day calendar-day-empty"></div>';
+  }
+
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dayDate = new Date(y, m, d);
+    var key = dateKey(dayDate);
+    var dayBookings = bookingsByDay[key] || [];
+
+    var hasApproved = false;
+    var hasPending = false;
+    for (var k = 0; k < dayBookings.length; k++) {
+      if (dayBookings[k].status === 'approved') hasApproved = true;
+      if (dayBookings[k].status === 'pending') hasPending = true;
+    }
+
+    var classes = 'calendar-day';
+    if (hasApproved) classes += ' day-approved';
+    else if (hasPending) classes += ' day-pending';
+    if (key === todayKey) classes += ' day-today';
+    if (dayBookings.length > 0) classes += ' day-has-bookings';
+
+    html += '<div class="' + classes + '" data-day="' + key + '">';
+    html += '  <span class="calendar-day-num">' + d + '</span>';
+    if (dayBookings.length > 0) {
+      html += '  <span class="calendar-day-badge">' + dayBookings.length + '</span>';
+    }
+    html += '</div>';
+  }
+
+  var totalCells = startWeekday + daysInMonth;
+  var trailing = (7 - (totalCells % 7)) % 7;
+  for (var t = 0; t < trailing; t++) {
+    html += '<div class="calendar-day calendar-day-empty"></div>';
+  }
+
+  document.getElementById('calendarGrid').innerHTML = html;
+
+  var dayEls = document.querySelectorAll('#calendarGrid .calendar-day[data-day]');
+  for (var q = 0; q < dayEls.length; q++) {
+    dayEls[q].addEventListener('click', function() {
+      var dayKey = this.getAttribute('data-day');
+      var dayBookings = bookingsByDay[dayKey] || [];
+      showScheduleDayDetails(dayKey, dayBookings);
+    });
+  }
+}
+
+function dateKey(d) {
+  var y = d.getFullYear();
+  var m = ('0' + (d.getMonth() + 1)).slice(-2);
+  var day = ('0' + d.getDate()).slice(-2);
+  return y + '-' + m + '-' + day;
+}
+
+function showScheduleDayDetails(dayKey, bookings) {
+  var el = document.getElementById('scheduleDayDetails');
+  el.style.display = 'block';
+
+  if (!bookings || bookings.length === 0) {
+    el.innerHTML = '<p class="muted" style="text-align:center; padding:12px;">No bookings on ' + dayKey + '.</p>';
+    return;
+  }
+
+  var html = '<h4 style="margin-bottom:10px; color:#38bdf8;">Bookings on ' + dayKey + '</h4>';
+  html += '<div class="schedule-booking-list">';
+
+  for (var i = 0; i < bookings.length; i++) {
+    var b = bookings[i];
+    var statusClass = 'booking-' + b.status;
+    html += '<div class="schedule-booking ' + statusClass + '">';
+    html += '  <div class="schedule-booking-header">';
+    html += '    <strong>' + escapeHtml(b.requester_name || 'Unknown') + '</strong>';
+    html += '    <span class="rental-role-tag">' + escapeHtml(b.requester_role || 'student') + '</span>';
+    html += '    <span class="rental-badge rental-status-' + b.status + '">' + b.status.charAt(0).toUpperCase() + b.status.slice(1) + '</span>';
+    html += '  </div>';
+    html += '  <div class="schedule-booking-details">';
+    html += '    <span>🕒 ' + fmtDate(b.start_date) + ' · ' + b.duration_hours + 'h</span>';
+    html += '  </div>';
+    if (b.notes) {
+      html += '  <div class="schedule-booking-notes">' + escapeHtml(b.notes) + '</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+window.openScheduleModal = openScheduleModal;
+window.closeScheduleModal = closeScheduleModal;
+window.shiftScheduleMonth = shiftScheduleMonth;
+window.goToTodaySchedule = goToTodaySchedule;
 
 // ============================================
 // NOTIFICATIONS
