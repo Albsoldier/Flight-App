@@ -14,6 +14,14 @@ var rentalRequestsCache = [];
 var notifCache = [];
 var notifRefreshTimer = null;
 
+// Pagination state
+var paginationState = {
+  rentals:     { page: 1, perPage: 10, total: 0 },
+  myRentals:   { page: 1, perPage: 10, total: 0 },
+  allLogs:     { page: 1, perPage: 25, total: 0 },
+  myLog:       { page: 1, perPage: 25, total: 0 }
+};
+
 function api(path, options) {
   options = options || {};
   var isFormData = options.body instanceof FormData;
@@ -69,6 +77,67 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ============================================
+// PAGINATION HELPERS
+// ============================================
+function paginateArray(arr, state) {
+  state.total = arr.length;
+  var totalPages = Math.max(1, Math.ceil(arr.length / state.perPage));
+  if (state.page > totalPages) state.page = totalPages;
+  if (state.page < 1) state.page = 1;
+  var start = (state.page - 1) * state.perPage;
+  var end = start + state.perPage;
+  return {
+    items: arr.slice(start, end),
+    start: start,
+    end: Math.min(end, arr.length),
+    totalPages: totalPages
+  };
+}
+
+function renderPager(pagerId, state, onPageChange) {
+  var el = document.getElementById(pagerId);
+  if (!el) return;
+
+  var totalPages = Math.max(1, Math.ceil(state.total / state.perPage));
+  if (state.total === 0) {
+    el.innerHTML = '';
+    return;
+  }
+
+  var html = '';
+  html += '<div class="pager-info">Showing ' + (state.total === 0 ? 0 : ((state.page - 1) * state.perPage + 1)) + '–' + Math.min(state.page * state.perPage, state.total) + ' of ' + state.total + '</div>';
+  html += '<div class="pager-controls">';
+  html += '  <button class="pager-btn" data-action="prev" ' + (state.page <= 1 ? 'disabled' : '') + '>‹ Prev</button>';
+  html += '  <span class="pager-page">Page ' + state.page + ' of ' + totalPages + '</span>';
+  html += '  <button class="pager-btn" data-action="next" ' + (state.page >= totalPages ? 'disabled' : '') + '>Next ›</button>';
+  html += '  <select class="pager-perpage" data-action="perpage">';
+  [10, 25, 50, 100].forEach(function(n) {
+    html += '<option value="' + n + '"' + (n === state.perPage ? ' selected' : '') + '>' + n + ' per page</option>';
+  });
+  html += '  </select>';
+  html += '</div>';
+
+  el.innerHTML = html;
+
+  // Bind events (once per render is fine — replace with cloned nodes would be cleaner, but this works)
+  var prevBtn = el.querySelector('[data-action="prev"]');
+  var nextBtn = el.querySelector('[data-action="next"]');
+  var perPageSel = el.querySelector('[data-action="perpage"]');
+
+  if (prevBtn) prevBtn.addEventListener('click', function() {
+    if (state.page > 1) { state.page--; onPageChange(); }
+  });
+  if (nextBtn) nextBtn.addEventListener('click', function() {
+    if (state.page < totalPages) { state.page++; onPageChange(); }
+  });
+  if (perPageSel) perPageSel.addEventListener('change', function() {
+    state.perPage = parseInt(perPageSel.value) || 10;
+    state.page = 1;
+    onPageChange();
+  });
 }
 
 // ---------- THEME ----------
@@ -850,43 +919,58 @@ function closeProgressModal() {
 }
 
 // ---------- MY FLIGHT LOG ----------
+var myLogCache = [];
 function loadMyLog() {
   api('/api/flights/sessions/my').then(function(data) {
-    if (!data.sessions || data.sessions.length === 0) {
+    myLogCache = data.sessions || [];
+    if (myLogCache.length === 0) {
       document.getElementById('myLogList').innerHTML = '<p class="muted">No flights logged yet.</p>';
+      renderPager('myLogPager', paginationState.myLog, renderMyLogPage);
       return;
     }
-    var totalHours = 0;
-    for (var t = 0; t < data.sessions.length; t++) totalHours += (data.sessions[t].duration_hours || 0);
-
-    var html = '<p class="muted" style="margin-bottom:10px;">Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + data.sessions.length + ' flights</p>';
-    html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration</th></tr></thead><tbody>';
-    for (var i = 0; i < data.sessions.length; i++) {
-      var s = data.sessions[i];
-      var instName = s.instructor_name || ((s.pilot_role === 'admin' || s.pilot_role === 'instructor') ? 'Self' : '—');
-      html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td>' +
-              '<td>' + escapeHtml(s.flight_type || '—') + '</td><td>' + escapeHtml(instName) + '</td>' +
-              '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
-              '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td></tr>';
-    }
-    html += '</tbody></table>';
-    document.getElementById('myLogList').innerHTML = html;
+    renderMyLogPage();
   }).catch(function(err) {
     document.getElementById('myLogList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
+}
+
+function renderMyLogPage() {
+  var result = paginateArray(myLogCache, paginationState.myLog);
+
+  var totalHours = 0;
+  for (var t = 0; t < myLogCache.length; t++) totalHours += (myLogCache[t].duration_hours || 0);
+
+  var html = '<p class="muted" style="margin-bottom:10px;">Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + myLogCache.length + ' flights</p>';
+  html += '<table class="table"><thead><tr><th>Date</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration</th></tr></thead><tbody>';
+  for (var i = 0; i < result.items.length; i++) {
+    var s = result.items[i];
+    var instName = s.instructor_name || ((s.pilot_role === 'admin' || s.pilot_role === 'instructor') ? 'Self' : '—');
+    html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.aircraft || '—') + '</td>' +
+            '<td>' + escapeHtml(s.flight_type || '—') + '</td><td>' + escapeHtml(instName) + '</td>' +
+            '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>' +
+            '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td></tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('myLogList').innerHTML = html;
+
+  renderPager('myLogPager', paginationState.myLog, renderMyLogPage);
 }
 
 // ---------- ALL FLIGHT LOGS ----------
 function loadAllLogs() {
   api('/api/flights/sessions/all').then(function(data) {
     allLogsCache = data.sessions || [];
+    paginationState.allLogs.page = 1;
     renderAllLogs();
   }).catch(function(err) {
     document.getElementById('allLogsList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
-function applyFilters() { renderAllLogs(); }
+function applyFilters() {
+  paginationState.allLogs.page = 1;
+  renderAllLogs();
+}
 
 function renderAllLogs() {
   var filterPilot = (document.getElementById('filterPilot').value || '').toLowerCase();
@@ -909,17 +993,27 @@ function renderAllLogs() {
 
   if (filtered.length === 0) {
     document.getElementById('allLogsList').innerHTML = '<p class="muted">No flights match your filter.</p>';
+    renderPager('allLogsPager', paginationState.allLogs, renderAllLogsPage);
+    paginationState.allLogs.total = 0;
     return;
   }
 
   var totalHours = 0;
   for (var t = 0; t < filtered.length; t++) totalHours += (filtered[t].duration_hours || 0);
 
+  // Use filtered array for pagination
+  paginationState.allLogs.total = filtered.length;
+  var totalPages = Math.max(1, Math.ceil(filtered.length / paginationState.allLogs.perPage));
+  if (paginationState.allLogs.page > totalPages) paginationState.allLogs.page = totalPages;
+
+  var start = (paginationState.allLogs.page - 1) * paginationState.allLogs.perPage;
+  var pageItems = filtered.slice(start, start + paginationState.allLogs.perPage);
+
   var html = '<p class="muted" style="margin-bottom:10px;">Showing <strong style="color:#38bdf8;">' + filtered.length + '</strong> flights · ' + totalHours.toFixed(2) + ' hours</p>';
   html += '<table class="table"><thead><tr><th>Date</th><th>Pilot</th><th>Role</th><th>Aircraft</th><th>Type</th><th>Instructor</th><th>Notes</th><th>Duration</th><th>Actions</th></tr></thead><tbody>';
 
-  for (var j = 0; j < filtered.length; j++) {
-    var s = filtered[j];
+  for (var j = 0; j < pageItems.length; j++) {
+    var s = pageItems[j];
     var role = s.pilot_role || s.pilot_role_actual || 'student';
     var instName = s.instructor_name || ((role === 'admin' || role === 'instructor') ? 'Self' : '—');
     html += '<tr><td>' + fmtDate(s.start_time) + '</td><td>' + escapeHtml(s.pilot_name || '—') + '</td>' +
@@ -932,7 +1026,49 @@ function renderAllLogs() {
   }
   html += '</tbody></table>';
   document.getElementById('allLogsList').innerHTML = html;
+
+  // Custom pager (uses filtered list, not allLogsCache)
+  renderAllLogsCustomPager(filtered.length, totalPages);
 }
+
+function renderAllLogsCustomPager(totalItems, totalPages) {
+  var el = document.getElementById('allLogsPager');
+  if (!el) return;
+  var state = paginationState.allLogs;
+  if (totalItems === 0) { el.innerHTML = ''; return; }
+
+  var html = '';
+  html += '<div class="pager-info">Showing ' + ((state.page - 1) * state.perPage + 1) + '–' + Math.min(state.page * state.perPage, totalItems) + ' of ' + totalItems + '</div>';
+  html += '<div class="pager-controls">';
+  html += '  <button class="pager-btn" data-action="prev" ' + (state.page <= 1 ? 'disabled' : '') + '>‹ Prev</button>';
+  html += '  <span class="pager-page">Page ' + state.page + ' of ' + totalPages + '</span>';
+  html += '  <button class="pager-btn" data-action="next" ' + (state.page >= totalPages ? 'disabled' : '') + '>Next ›</button>';
+  html += '  <select class="pager-perpage" data-action="perpage">';
+  [10, 25, 50, 100].forEach(function(n) {
+    html += '<option value="' + n + '"' + (n === state.perPage ? ' selected' : '') + '>' + n + ' per page</option>';
+  });
+  html += '  </select>';
+  html += '</div>';
+  el.innerHTML = html;
+
+  var prevBtn = el.querySelector('[data-action="prev"]');
+  var nextBtn = el.querySelector('[data-action="next"]');
+  var perPageSel = el.querySelector('[data-action="perpage"]');
+
+  if (prevBtn) prevBtn.addEventListener('click', function() {
+    if (state.page > 1) { state.page--; renderAllLogs(); }
+  });
+  if (nextBtn) nextBtn.addEventListener('click', function() {
+    if (state.page < totalPages) { state.page++; renderAllLogs(); }
+  });
+  if (perPageSel) perPageSel.addEventListener('change', function() {
+    state.perPage = parseInt(perPageSel.value) || 25;
+    state.page = 1;
+    renderAllLogs();
+  });
+}
+
+function renderAllLogsPage() { /* unused placeholder */ }
 
 // ---------- EDIT SESSION ----------
 function editSession(id) {
@@ -1515,14 +1651,25 @@ function loadMyRentals() {
   if (!el) return;
   api('/api/rentals/my').then(function(data) {
     var requests = data.requests || [];
+    paginationState.myRentals.total = requests.length;
+    paginationState.myRentals.page = 1;
     if (requests.length === 0) {
       el.innerHTML = '<p class="muted">You have no rental requests yet.</p>';
+      renderPager('myRentalsPager', paginationState.myRentals, renderMyRentalsPage);
       return;
     }
-    el.innerHTML = renderRentalList(requests, false);
+    window.__myRentalsCache = requests;
+    renderMyRentalsPage();
   }).catch(function(err) {
     el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
+}
+
+function renderMyRentalsPage() {
+  var cache = window.__myRentalsCache || [];
+  var result = paginateArray(cache, paginationState.myRentals);
+  document.getElementById('myRentalsList').innerHTML = renderRentalList(result.items, false);
+  renderPager('myRentalsPager', paginationState.myRentals, renderMyRentalsPage);
 }
 
 function loadRentals() {
@@ -1530,17 +1677,29 @@ function loadRentals() {
   if (!el) return;
   api('/api/rentals/all').then(function(data) {
     rentalRequestsCache = data.requests || [];
+    paginationState.rentals.page = 1;
     if (rentalRequestsCache.length === 0) {
       el.innerHTML = '<p class="muted">No rental requests yet.</p>';
+      renderPager('rentalsPager', paginationState.rentals, renderRentalsPage);
       return;
     }
-    el.innerHTML = renderRentalList(rentalRequestsCache, true);
+    renderRentalsPage();
   }).catch(function(err) {
     el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
 }
 
+function renderRentalsPage() {
+  var result = paginateArray(rentalRequestsCache, paginationState.rentals);
+  document.getElementById('rentalsList').innerHTML = renderRentalList(result.items, true);
+  renderPager('rentalsPager', paginationState.rentals, renderRentalsPage);
+}
+
 function renderRentalList(requests, isReviewer) {
+  if (!requests || requests.length === 0) {
+    return '<p class="muted">No rental requests to display.</p>';
+  }
+
   var html = '<div class="rental-list">';
 
   for (var i = 0; i < requests.length; i++) {
