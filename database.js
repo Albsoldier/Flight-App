@@ -150,6 +150,21 @@ async function initSchema() {
     )
   `);
 
+    // Notifications
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      link TEXT,
+      is_read INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
   // Safe migrations
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_id TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN discord_username TEXT"); } catch(e) {}
