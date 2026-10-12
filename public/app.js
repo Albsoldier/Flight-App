@@ -11,6 +11,8 @@ var aircraftCache = [];
 var notamCache = [];
 var materialFoldersState = {};
 var rentalRequestsCache = [];
+var notifCache = [];
+var notifRefreshTimer = null;
 
 function api(path, options) {
   options = options || {};
@@ -264,6 +266,9 @@ function initSocket() {
         }
       }
     });
+    socket.on('notification-event', function() {
+      loadNotifications();
+    });
   } catch (e) { /* ignore */ }
 }
 
@@ -408,6 +413,35 @@ function setupDashboard() {
     rmrBtn.addEventListener('click', loadMyRentals);
   }
 
+  var notifBell = document.getElementById('notifBell');
+  if (notifBell && !notifBell.dataset.bound) {
+    notifBell.dataset.bound = '1';
+    notifBell.addEventListener('click', function(e) {
+      e.stopPropagation();
+      toggleNotifDropdown();
+    });
+  }
+  var notifMarkAll = document.getElementById('notifMarkAllRead');
+  if (notifMarkAll && !notifMarkAll.dataset.bound) {
+    notifMarkAll.dataset.bound = '1';
+    notifMarkAll.addEventListener('click', markAllNotifsRead);
+  }
+  var notifClearAll = document.getElementById('notifClearAll');
+  if (notifClearAll && !notifClearAll.dataset.bound) {
+    notifClearAll.dataset.bound = '1';
+    notifClearAll.addEventListener('click', clearAllNotifs);
+  }
+
+  if (!window.notifOutsideBound) {
+    window.notifOutsideBound = true;
+    document.addEventListener('click', function(e) {
+      var wrapper = document.querySelector('.notif-wrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        closeNotifDropdown();
+      }
+    });
+  }
+
   if (isAdmin) {
     var ralBtn = document.getElementById('refreshAllLogs');
     if (ralBtn && !ralBtn.dataset.bound) {
@@ -542,6 +576,9 @@ function setupDashboard() {
   loadWaypoints();
   loadMyRentals();
   if (canManage) loadRentals();
+  loadNotifications();
+  if (notifRefreshTimer) clearInterval(notifRefreshTimer);
+  notifRefreshTimer = setInterval(loadNotifications, 60000);
   if (isAdmin) loadAllLogs();
 
   if (isAdmin) setInterval(loadOnlineUsers, 30000);
@@ -1513,7 +1550,6 @@ function renderRentalList(requests, isReviewer) {
 
     html += '<div class="rental-card ' + statusClass + '">';
 
-    // Header: tail + model on left, status badge on right
     html += '  <div class="rental-card-header">';
     html += '    <div class="rental-card-titles">';
     html += '      <div class="rental-aircraft">' + escapeHtml(r.tail_number) + '</div>';
@@ -1522,7 +1558,6 @@ function renderRentalList(requests, isReviewer) {
     html += '    <span class="rental-badge ' + statusClass + '">' + statusLabel + '</span>';
     html += '  </div>';
 
-    // Requester line (only for reviewer view)
     if (isReviewer && r.requester_name) {
       html += '  <div class="rental-requester">';
       html += '    Requested by <strong>' + escapeHtml(r.requester_name) + '</strong>';
@@ -1530,7 +1565,6 @@ function renderRentalList(requests, isReviewer) {
       html += '  </div>';
     }
 
-    // Details as chips
     html += '  <div class="rental-details">';
     html += '    <span class="rental-detail-chip">📅 ' + fmtDate(r.start_date) + '</span>';
     html += '    <span class="rental-detail-chip">⏱️ ' + r.duration_hours + ' h</span>';
@@ -1539,7 +1573,6 @@ function renderRentalList(requests, isReviewer) {
     }
     html += '  </div>';
 
-    // Requester notes
     if (r.notes) {
       html += '  <div class="rental-notes">';
       html += '    <span class="rental-notes-label">Requester notes</span>';
@@ -1547,7 +1580,6 @@ function renderRentalList(requests, isReviewer) {
       html += '  </div>';
     }
 
-    // Reviewer notes
     if (r.review_notes) {
       html += '  <div class="rental-review-notes">';
       html += '    <span class="rental-notes-label">Reviewer notes</span>';
@@ -1555,7 +1587,6 @@ function renderRentalList(requests, isReviewer) {
       html += '  </div>';
     }
 
-    // Actions
     if (r.status === 'pending') {
       html += '  <div class="rental-actions">';
       if (isReviewer) {
@@ -1638,6 +1669,169 @@ window.openRentalReviewModal = openRentalReviewModal;
 window.closeRentalReviewModal = closeRentalReviewModal;
 window.reviewRentalRequest = reviewRentalRequest;
 window.cancelRentalRequest = cancelRentalRequest;
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+function loadNotifications() {
+  api('/api/notifications').then(function(data) {
+    notifCache = data.notifications || [];
+    renderNotifications(notifCache);
+    updateNotifBadge(data.unread || 0);
+  }).catch(function() {});
+}
+
+function updateNotifBadge(count) {
+  var badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function renderNotifications(items) {
+  var el = document.getElementById('notifList');
+  if (!el) return;
+
+  if (!items || items.length === 0) {
+    el.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < items.length; i++) {
+    var n = items[i];
+    var unreadClass = n.is_read ? '' : ' unread';
+    var icon = notifIcon(n.type);
+
+    html += '<div class="notif-item' + unreadClass + '" data-id="' + n.id + '" data-link="' + escapeHtml(n.link || '') + '">';
+    html += '  <span class="notif-icon">' + icon + '</span>';
+    html += '  <div class="notif-body">';
+    html += '    <div class="notif-title">' + escapeHtml(n.title) + '</div>';
+    if (n.body) html += '    <div class="notif-text">' + escapeHtml(n.body) + '</div>';
+    html += '    <div class="notif-time">' + fmtNotifTime(n.created_at) + '</div>';
+    html += '  </div>';
+    html += '  <button class="notif-delete" title="Delete" data-id="' + n.id + '">×</button>';
+    html += '</div>';
+  }
+  el.innerHTML = html;
+
+  var itemEls = el.querySelectorAll('.notif-item');
+  for (var j = 0; j < itemEls.length; j++) {
+    itemEls[j].addEventListener('click', function(e) {
+      if (e.target.classList.contains('notif-delete')) return;
+      var id = this.getAttribute('data-id');
+      var link = this.getAttribute('data-link');
+      markNotifRead(id).then(function() {
+        closeNotifDropdown();
+        if (link) {
+          var target = document.getElementById(link);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            target.classList.add('notif-highlight');
+            setTimeout(function() { target.classList.remove('notif-highlight'); }, 1500);
+          }
+        }
+      });
+    });
+  }
+
+  var delEls = el.querySelectorAll('.notif-delete');
+  for (var k = 0; k < delEls.length; k++) {
+    delEls[k].addEventListener('click', function(e) {
+      e.stopPropagation();
+      var id = this.getAttribute('data-id');
+      deleteNotif(id);
+    });
+  }
+}
+
+function notifIcon(type) {
+  if (type === 'rental-request') return '📝';
+  if (type === 'rental-approved') return '✅';
+  if (type === 'rental-denied') return '❌';
+  if (type === 'certificate-issued') return '🎖️';
+  if (type === 'welcome') return '👋';
+  if (type === 'flight-logged') return '✈️';
+  return '🔔';
+}
+
+function fmtNotifTime(str) {
+  if (!str) return '';
+  var d = new Date(String(str).replace(' ', 'T') + 'Z');
+  if (isNaN(d.getTime())) return str;
+  var diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+  return d.toISOString().slice(0, 10);
+}
+
+function markNotifRead(id) {
+  return api('/api/notifications/' + id + '/read', { method: 'POST' }).then(function() {
+    var badge = document.getElementById('notifBadge');
+    var current = parseInt(badge.textContent) || 0;
+    if (current > 0) updateNotifBadge(current - 1);
+    for (var i = 0; i < notifCache.length; i++) {
+      if (String(notifCache[i].id) === String(id)) {
+        notifCache[i].is_read = 1;
+        break;
+      }
+    }
+    var itemEl = document.querySelector('.notif-item[data-id="' + id + '"]');
+    if (itemEl) itemEl.classList.remove('unread');
+  });
+}
+
+function markAllNotifsRead() {
+  api('/api/notifications/read-all', { method: 'POST' }).then(function() {
+    updateNotifBadge(0);
+    for (var i = 0; i < notifCache.length; i++) notifCache[i].is_read = 1;
+    var items = document.querySelectorAll('.notif-item');
+    for (var j = 0; j < items.length; j++) items[j].classList.remove('unread');
+    toast('All marked as read', 'success');
+  }).catch(function() {});
+}
+
+function deleteNotif(id) {
+  api('/api/notifications/' + id, { method: 'DELETE' }).then(function() {
+    loadNotifications();
+  }).catch(function() {});
+}
+
+function clearAllNotifs() {
+  if (!confirm('Clear all notifications?')) return;
+  api('/api/notifications', { method: 'DELETE' }).then(function() {
+    loadNotifications();
+    toast('Notifications cleared', 'success');
+  }).catch(function() {});
+}
+
+function openNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  dd.style.display = 'flex';
+  loadNotifications();
+}
+
+function closeNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function toggleNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  if (dd.style.display === 'flex') closeNotifDropdown();
+  else openNotifDropdown();
+}
+
+window.toggleNotifDropdown = toggleNotifDropdown;
+window.closeNotifDropdown = closeNotifDropdown;
 
 // ============================================
 // NOTAMS
