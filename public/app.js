@@ -24,6 +24,7 @@ var paginationState = {
 };
 
 var usersCache = [];
+var certGridCache = [];
 
 function api(path, options) {
   options = options || {};
@@ -513,6 +514,23 @@ function setupDashboard() {
     });
   }
 
+  // Certificate grid controls — available to everyone
+  var refreshCertBtn = document.getElementById('refreshCertGrid');
+  if (refreshCertBtn && !refreshCertBtn.dataset.bound) {
+    refreshCertBtn.dataset.bound = '1';
+    refreshCertBtn.addEventListener('click', loadCertGrid);
+  }
+  var certSearch = document.getElementById('certSearchInput');
+  if (certSearch && !certSearch.dataset.bound) {
+    certSearch.dataset.bound = '1';
+    certSearch.addEventListener('input', renderCertGrid);
+  }
+  var certRoleFilter = document.getElementById('certRoleFilter');
+  if (certRoleFilter && !certRoleFilter.dataset.bound) {
+    certRoleFilter.dataset.bound = '1';
+    certRoleFilter.addEventListener('change', renderCertGrid);
+  }
+
   if (isAdmin) {
     var ralBtn = document.getElementById('refreshAllLogs');
     if (ralBtn && !ralBtn.dataset.bound) {
@@ -648,6 +666,7 @@ function setupDashboard() {
   loadMyRentals();
   if (canManage) loadRentals();
   loadNotifications();
+  loadCertGrid();
   if (notifRefreshTimer) clearInterval(notifRefreshTimer);
   notifRefreshTimer = setInterval(loadNotifications, 60000);
   if (isAdmin) loadAllLogs();
@@ -780,7 +799,7 @@ function loadOnlineUsers() {
 }
 
 // ============================================
-// USERS — Showcase Card (Option 5)
+// USERS — Showcase Card + Pagination
 // ============================================
 function loadUsers() {
   api('/api/admin/users').then(function(data) {
@@ -818,7 +837,6 @@ function renderUsersPage() {
 
     html += '<div class="user-card user-card-' + u.role + '" data-user-id="' + u.id + '">';
 
-    // Avatar zone
     html += '  <div class="user-card-avatar-zone">';
     if (u.avatar_filename) {
       html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + ' user-avatar-clickable" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
@@ -828,14 +846,12 @@ function renderUsersPage() {
     html += '    <span class="user-status-dot ' + statusClass + '" title="' + statusLabel + '"></span>';
     html += '  </div>';
 
-    // Identity
     html += '  <div class="user-card-identity">';
     html += '    <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
     html += '    <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
     html += '    <span class="badge badge-' + u.role + ' user-card-role-badge">' + u.role + '</span>';
     html += '  </div>';
 
-    // Mini stats
     html += '  <div class="user-card-stats">';
     html += '    <div class="user-mini-stat">';
     html += '      <div class="user-mini-stat-value">' + hours + '</div>';
@@ -847,12 +863,10 @@ function renderUsersPage() {
     html += '    </div>';
     html += '  </div>';
 
-    // Footer
     html += '  <div class="user-card-footer">';
     html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
     html += '  </div>';
 
-    // Actions
     var actionsHtml = '';
     actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
 
@@ -874,10 +888,9 @@ function renderUsersPage() {
 
   renderPager('usersPager', paginationState.users, renderUsersPage);
 
-  // Fetch cert counts for the visible users only
   loadAllCertCounts(result.items);
 }
-// Fetch cert count per user and update the mini-stat
+
 function loadAllCertCounts(users) {
   if (!users || users.length === 0) return;
   for (var i = 0; i < users.length; i++) {
@@ -931,6 +944,94 @@ function deleteUser(id, username) {
     loadInstructors();
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
+
+// ============================================
+// PUBLIC CERTIFICATE GRID — visible to everyone
+// ============================================
+function loadCertGrid() {
+  var el = document.getElementById('certGrid');
+  if (!el) return;
+  el.innerHTML = '<p class="muted">Loading...</p>';
+
+  api('/api/certificates/all-users').then(function(data) {
+    certGridCache = data.users || [];
+    renderCertGrid();
+  }).catch(function(err) {
+    el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderCertGrid() {
+  var el = document.getElementById('certGrid');
+  if (!el) return;
+
+  var searchTerm = (document.getElementById('certSearchInput').value || '').trim().toLowerCase();
+  var roleFilter = document.getElementById('certRoleFilter').value || '';
+
+  var filtered = [];
+  for (var i = 0; i < certGridCache.length; i++) {
+    var u = certGridCache[i];
+    if (roleFilter && u.role !== roleFilter) continue;
+    if (searchTerm) {
+      var name = (u.full_name || '').toLowerCase();
+      var uname = (u.username || '').toLowerCase();
+      if (name.indexOf(searchTerm) === -1 && uname.indexOf(searchTerm) === -1) continue;
+    }
+    filtered.push(u);
+  }
+
+  if (filtered.length === 0) {
+    el.innerHTML = '<p class="muted">No pilots match your search.</p>';
+    return;
+  }
+
+  var html = '<div class="cert-pilot-grid">';
+
+  for (var k = 0; k < filtered.length; k++) {
+    var u = filtered[k];
+    var initials = getInitials(u.full_name);
+    var certs = u.certificates || [];
+
+    html += '<div class="cert-pilot-card cert-pilot-' + u.role + '">';
+
+    html += '  <div class="cert-pilot-header">';
+    if (u.avatar_filename) {
+      html += '    <div class="cert-pilot-avatar cert-pilot-avatar-img avatar-' + u.role + '" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '"></div>';
+    } else {
+      html += '    <div class="cert-pilot-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
+    }
+    html += '    <div class="cert-pilot-info">';
+    html += '      <div class="cert-pilot-name">' + escapeHtml(u.full_name) + '</div>';
+    html += '      <div class="cert-pilot-username">@' + escapeHtml(u.username) + '</div>';
+    html += '      <span class="badge badge-' + u.role + '">' + u.role + '</span>';
+    html += '    </div>';
+    html += '  </div>';
+
+    if (certs.length > 0) {
+      html += '  <div class="cert-pilot-chips">';
+      for (var c = 0; c < certs.length; c++) {
+        var cert = certs[c];
+        html += '    <span class="cert-pill cert-pill-' + u.role + '" title="' + escapeHtml(cert.name) + '">' + escapeHtml(cert.short) + '</span>';
+      }
+      html += '  </div>';
+    } else {
+      html += '  <div class="cert-pilot-empty">No certificates yet</div>';
+    }
+
+    html += '  <div class="cert-pilot-footer">';
+    html += '    <span>' + certs.length + ' cert' + (certs.length === 1 ? '' : 's') + '</span>';
+    html += '    <button class="btn-secondary btn-small" onclick="showProgress(' + u.id + ', \'' + escapeHtml(u.full_name).replace(/'/g, '&#39;') + '\')">📊 Progress</button>';
+    html += '  </div>';
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+window.loadCertGrid = loadCertGrid;
+window.renderCertGrid = renderCertGrid;
 
 // ---------- PROGRESS MODAL ----------
 function showProgress(userId, userName) {
@@ -2708,7 +2809,7 @@ window.closeEditUserModal = closeEditUserModal;
 window.saveUserEdit = saveUserEdit;
 
 // ============================================
-// CERTIFICATES
+// CERTIFICATES (manage modal — admin only)
 // ============================================
 var certCatalogCache = null;
 var certsCurrentUserId = null;
@@ -2799,6 +2900,7 @@ function renderCertDropdown(catalog, held) {
         var heading = document.getElementById('certsUserHeading').textContent;
         var userName = heading.split(' (')[0];
         openCertsModal(certsCurrentUserId, userName);
+        loadCertGrid();
       }).catch(function(err) {
         errEl.textContent = err.message;
         errEl.style.display = 'block';
@@ -2819,6 +2921,7 @@ function revokeCert(certId, code) {
     var heading = document.getElementById('certsUserHeading').textContent;
     var userName = heading.split(' (')[0];
     openCertsModal(certsCurrentUserId, userName);
+    loadCertGrid();
   }).catch(function(err) {
     showMessage(err.message, 'error');
   });
