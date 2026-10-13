@@ -642,6 +642,7 @@ function setupDashboard() {
   loadInstructors();
   loadMaterials();
   loadMyLog();
+  loadMyCertificates();
   loadAircraft();
   loadNotams();
   loadWaypoints();
@@ -802,6 +803,7 @@ function renderUsersPage() {
 
   var result = paginateArray(usersCache, paginationState.users);
   var isAdmin = currentUser && currentUser.role === 'admin';
+  var canManage = currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor');
 
   var html = '<div class="user-grid">';
 
@@ -848,13 +850,11 @@ function renderUsersPage() {
     html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
     html += '  </div>';
 
-        var canManage = currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor');
-
     var actionsHtml = '';
     actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
 
     if (canManage) {
-      // Instructors can issue certs on anyone except admins
+      // Instructors + admins can issue certs
       actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
 
       // Only admins can edit or delete, and never other admins
@@ -867,6 +867,7 @@ function renderUsersPage() {
     if (!canManage && u.role === 'admin') {
       actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
     }
+
     html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
 
     html += '</div>';
@@ -933,6 +934,50 @@ function deleteUser(id, username) {
     loadInstructors();
   }).catch(function(err) { showMessage(err.message, 'error'); });
 }
+
+// ============================================
+// MY CERTIFICATES — visible to the current user only
+// ============================================
+function loadMyCertificates() {
+  var el = document.getElementById('myCertsList');
+  if (!el) return;
+
+  el.innerHTML = '<p class="muted">Loading...</p>';
+
+  api('/api/certificates/user/' + currentUser.id).then(function(data) {
+    var certs = data.certificates || [];
+
+    if (certs.length === 0) {
+      el.innerHTML = '<p class="muted">You haven\'t earned any certificates yet. Keep logging those hours!</p>';
+      return;
+    }
+
+    var html = '<div class="my-certs-grid">';
+    for (var i = 0; i < certs.length; i++) {
+      var c = certs[i];
+      html += '<div class="my-cert-card">';
+      html += '  <div class="my-cert-badge">🎖️</div>';
+      html += '  <div class="my-cert-body">';
+      html += '    <div class="my-cert-code">' + escapeHtml(c.short) + '</div>';
+      html += '    <div class="my-cert-name">' + escapeHtml(c.name) + '</div>';
+      html += '    <div class="my-cert-meta">';
+      html += '      <span>Issued ' + fmtDate(c.issued_at) + '</span>';
+      if (c.issuer_name) {
+        html += '      <span>·</span>';
+        html += '      <span>by ' + escapeHtml(c.issuer_name) + '</span>';
+      }
+      html += '    </div>';
+      html += '  </div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }).catch(function(err) {
+    el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+window.loadMyCertificates = loadMyCertificates;
 
 // ---------- PROGRESS MODAL ----------
 function showProgress(userId, userName) {
@@ -2710,7 +2755,7 @@ window.closeEditUserModal = closeEditUserModal;
 window.saveUserEdit = saveUserEdit;
 
 // ============================================
-// CERTIFICATES
+// CERTIFICATES — Manage modal (admin + instructor)
 // ============================================
 var certCatalogCache = null;
 var certsCurrentUserId = null;
@@ -2801,6 +2846,8 @@ function renderCertDropdown(catalog, held) {
         var heading = document.getElementById('certsUserHeading').textContent;
         var userName = heading.split(' (')[0];
         openCertsModal(certsCurrentUserId, userName);
+        // If the current user got a cert on themselves, refresh My Certificates
+        if (certsCurrentUserId === currentUser.id) loadMyCertificates();
       }).catch(function(err) {
         errEl.textContent = err.message;
         errEl.style.display = 'block';
@@ -2821,6 +2868,8 @@ function revokeCert(certId, code) {
     var heading = document.getElementById('certsUserHeading').textContent;
     var userName = heading.split(' (')[0];
     openCertsModal(certsCurrentUserId, userName);
+    // If revoked from current user, refresh their My Certificates view
+    if (certsCurrentUserId === currentUser.id) loadMyCertificates();
   }).catch(function(err) {
     showMessage(err.message, 'error');
   });
