@@ -4100,4 +4100,190 @@ body.theme-light .schedule-booking-notes {
     font-size: 0.85rem;
     min-width: 140px;
   }
+
+   /* ============================================
+   PUBLIC CERTIFICATE GRID
+   ============================================ */
+.cert-pilot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cert-pilot-card {
+  position: relative;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-left: 4px solid #64748b;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.cert-pilot-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 8px 28px rgba(56, 189, 248, 0.18);
+}
+
+.cert-pilot-admin       { border-left-color: #ef4444; }
+.cert-pilot-instructor  { border-left-color: #f59e0b; }
+.cert-pilot-student     { border-left-color: #10b981; }
+
+.cert-pilot-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cert-pilot-avatar {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Courier New', monospace;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.35);
+  overflow: hidden;
+}
+
+.cert-pilot-avatar-img {
+  cursor: zoom-in;
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0;
+}
+
+.cert-pilot-avatar-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.cert-pilot-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cert-pilot-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cert-pilot-username {
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  color: #64748b;
+  letter-spacing: 0.02em;
+}
+
+.cert-pilot-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.cert-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+  transition: transform 0.12s;
+}
+
+.cert-pill:hover { transform: scale(1.05); }
+
+.cert-pill-admin {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+}
+.cert-pill-instructor {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+.cert-pill-student {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.cert-pilot-empty {
+  padding: 10px 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  font-size: 0.82rem;
+  color: #64748b;
+  font-style: italic;
+  text-align: center;
+}
+
+.cert-pilot-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.cert-pilot-footer button {
+  margin: 0;
+}
+
+html[data-theme="light"] .cert-pilot-card,
+body.theme-light .cert-pilot-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+html[data-theme="light"] .cert-pilot-name,
+body.theme-light .cert-pilot-name { color: #1e293b; }
+
+html[data-theme="light"] .cert-pilot-username,
+body.theme-light .cert-pilot-username { color: #64748b; }
+
+html[data-theme="light"] .cert-pilot-chips,
+html[data-theme="light"] .cert-pilot-empty,
+html[data-theme="light"] .cert-pilot-footer,
+body.theme-light .cert-pilot-chips,
+body.theme-light .cert-pilot-empty,
+body.theme-light .cert-pilot-footer {
+  border-top-color: rgba(203, 213, 225, 0.8);
+}
+
+html[data-theme="light"] .cert-pilot-footer,
+body.theme-light .cert-pilot-footer { color: #64748b; }
+
+@media (max-width: 640px) {
+  .cert-pilot-grid {
+    grid-template-columns: 1fr;
+  }
 }
