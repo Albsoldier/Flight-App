@@ -776,6 +776,9 @@ function loadOnlineUsers() {
   }).catch(function() {});
 }
 
+// ============================================
+// USERS — Showcase Card (Option 5)
+// ============================================
 function loadUsers() {
   api('/api/admin/users').then(function(data) {
     if (!data.users || data.users.length === 0) {
@@ -796,39 +799,54 @@ function loadUsers() {
       var isActive = u.is_active === 1 || u.is_active === true;
       var statusClass = isActive ? 'active' : 'inactive';
       var statusLabel = isActive ? 'Active' : 'Inactive';
+      var since = u.created_at ? fmtDate(u.created_at).slice(0, 10) : '—';
 
-      html += '<div class="user-card user-card-' + u.role + '">';
+      html += '<div class="user-card user-card-' + u.role + '" data-user-id="' + u.id + '">';
 
-      html += '  <div class="user-card-header">';
+      // Avatar zone (big centered)
+      html += '  <div class="user-card-avatar-zone">';
       if (u.avatar_filename) {
         html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + ' user-avatar-clickable" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
       } else {
         html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
       }
-      html += '    <div class="user-card-titles">';
-      html += '      <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
-      html += '      <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
-      html += '    </div>';
       html += '    <span class="user-status-dot ' + statusClass + '" title="' + statusLabel + '"></span>';
       html += '  </div>';
 
-      html += '  <div class="user-card-body">';
-      html += '    <span class="badge badge-' + u.role + '">' + u.role + '</span>';
-      html += '    <div class="user-hours">';
-      html += '      <span class="user-hours-num">' + hours + '</span>';
-      html += '      <span class="user-hours-label">hours</span>';
+      // Identity
+      html += '  <div class="user-card-identity">';
+      html += '    <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
+      html += '    <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
+      html += '    <span class="badge badge-' + u.role + ' user-card-role-badge">' + u.role + '</span>';
+      html += '  </div>';
+
+      // Mini stats
+      html += '  <div class="user-card-stats">';
+      html += '    <div class="user-mini-stat">';
+      html += '      <div class="user-mini-stat-value">' + hours + '</div>';
+      html += '      <div class="user-mini-stat-label">Hours</div>';
+      html += '    </div>';
+      html += '    <div class="user-mini-stat">';
+      html += '      <div class="user-mini-stat-value" data-cert-count><span class="mini-stat-spinner"></span></div>';
+      html += '      <div class="user-mini-stat-label">Certs</div>';
       html += '    </div>';
       html += '  </div>';
 
+      // Footer (member since)
+      html += '  <div class="user-card-footer">';
+      html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
+      html += '  </div>';
+
+      // Actions (icon-only)
       var actionsHtml = '';
-      actionsHtml += '<button class="user-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊 Progress</button>';
+      actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
 
       if (isAdmin && u.role !== 'admin') {
-        actionsHtml += '<button class="user-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️ Edit</button>';
-        actionsHtml += '<button class="user-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️ Certs</button>';
-        actionsHtml += '<button class="user-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
+        actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
+        actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
+        actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
       } else if (u.role === 'admin') {
-        actionsHtml += '<span class="user-action-disabled" title="Admin account">🔒 Admin</span>';
+        actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
       }
 
       html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
@@ -838,9 +856,33 @@ function loadUsers() {
 
     html += '</div>';
     document.getElementById('usersList').innerHTML = html;
+
+    // Load cert counts asynchronously per card
+    loadAllCertCounts(data.users);
   }).catch(function(err) {
     document.getElementById('usersList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
   });
+}
+
+// Fetch cert count per user and update the mini-stat
+function loadAllCertCounts(users) {
+  if (!users || users.length === 0) return;
+  for (var i = 0; i < users.length; i++) {
+    (function(userId) {
+      api('/api/certificates/user/' + userId).then(function(data) {
+        var count = (data.certificates || []).length;
+        var card = document.querySelector('.user-card[data-user-id="' + userId + '"]');
+        if (!card) return;
+        var el = card.querySelector('[data-cert-count]');
+        if (el) el.textContent = count;
+      }).catch(function() {
+        var card = document.querySelector('.user-card[data-user-id="' + userId + '"]');
+        if (!card) return;
+        var el = card.querySelector('[data-cert-count]');
+        if (el) el.textContent = '—';
+      });
+    })(users[i].id);
+  }
 }
 
 function getInitials(fullName) {
