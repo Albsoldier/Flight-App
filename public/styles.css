@@ -846,12 +846,12 @@ body.theme-light .material-folder-body {
 }
 
 /* ============================================
-   USERS — CARD GRID
+   USERS — SHOWCASE CARD
    ============================================ */
 .user-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
   margin-top: 16px;
 }
 
@@ -859,13 +859,14 @@ body.theme-light .material-folder-body {
   position: relative;
   background: rgba(15, 23, 42, 0.75);
   border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 12px;
-  padding: 16px;
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-  overflow: hidden;
+  border-radius: 14px;
+  padding: 20px 18px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
 }
 
 .user-card::before {
@@ -876,18 +877,19 @@ body.theme-light .material-folder-body {
   right: 0;
   height: 3px;
   background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.6), transparent);
-  opacity: 0.5;
+  opacity: 0.6;
   transition: opacity 0.2s;
 }
 
 .user-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
   border-color: rgba(56, 189, 248, 0.55);
-  box-shadow: 0 8px 32px rgba(56, 189, 248, 0.2);
+  box-shadow: 0 12px 40px rgba(56, 189, 248, 0.22);
 }
 
 .user-card:hover::before { opacity: 1; }
 
+/* Role accent top stripe */
 .user-card-admin::before {
   background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.8), transparent);
 }
@@ -898,33 +900,36 @@ body.theme-light .material-folder-body {
   background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent);
 }
 
-.user-card-header {
+/* ---------- AVATAR ZONE ---------- */
+.user-card-avatar-zone {
+  position: relative;
+  width: 84px;
+  height: 84px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .user-avatar {
-  flex-shrink: 0;
-  width: 48px;
-  height: 48px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Courier New', monospace;
   font-weight: 800;
-  font-size: 1.05rem;
+  font-size: 1.7rem;
   letter-spacing: 0.05em;
   color: #0f172a;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.9), 0 0 0 4px rgba(56, 189, 248, 0.35);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;
 }
 
 .user-card:hover .user-avatar {
   transform: scale(1.06) rotate(-3deg);
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.9);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.9), 0 0 0 4px rgba(56, 189, 248, 0.85), 0 0 24px rgba(56, 189, 248, 0.4);
 }
 
 .avatar-admin {
@@ -937,35 +942,35 @@ body.theme-light .material-folder-body {
   background: linear-gradient(135deg, #34d399 0%, #059669 100%);
 }
 
-.user-card-titles {
-  flex: 1;
-  min-width: 0;
-}
-
-.user-card-name {
-  font-weight: 700;
-  font-size: 0.98rem;
-  color: #e2e8f0;
-  line-height: 1.2;
-  white-space: nowrap;
+.user-avatar-image {
+  padding: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  background: rgba(15, 23, 42, 0.9);
 }
 
-.user-card-meta {
-  font-family: 'Courier New', monospace;
-  font-size: 0.72rem;
-  color: #64748b;
-  margin-top: 3px;
-  letter-spacing: 0.02em;
-}
-
-.user-status-dot {
-  flex-shrink: 0;
-  width: 10px;
-  height: 10px;
+.user-avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
   border-radius: 50%;
+}
+
+.user-avatar-clickable {
+  cursor: zoom-in;
+}
+
+/* Status dot (floating bottom-right of avatar) */
+.user-status-dot {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 3px solid rgba(15, 23, 42, 0.9);
   box-shadow: 0 0 8px currentColor;
+  z-index: 2;
 }
 
 .user-status-dot.active {
@@ -980,115 +985,210 @@ body.theme-light .material-folder-body {
   box-shadow: none;
 }
 
-.user-card-body {
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+
+/* ---------- IDENTITY ---------- */
+.user-card-identity {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid rgba(51, 65, 85, 0.5);
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-}
-
-.user-hours {
-  display: flex;
-  align-items: baseline;
+  text-align: center;
   gap: 4px;
+  min-width: 0;
+  width: 100%;
 }
 
-.user-hours-num {
+.user-card-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #e2e8f0;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card-meta {
   font-family: 'Courier New', monospace;
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: #38bdf8;
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+  font-size: 0.72rem;
+  color: #64748b;
   letter-spacing: 0.02em;
 }
 
-.user-hours-label {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+.user-card-role-badge {
+  margin-top: 6px;
+}
+
+/* ---------- MINI STATS ---------- */
+.user-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+.user-mini-stat {
+  background: rgba(10, 25, 41, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+
+.user-card:hover .user-mini-stat {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.user-mini-stat-value {
+  font-family: 'Courier New', monospace;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #38bdf8;
+  line-height: 1;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  min-height: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-mini-stat-label {
+  font-size: 0.62rem;
   color: #64748b;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 4px;
   font-weight: 700;
 }
 
+.mini-stat-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(56, 189, 248, 0.25);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: miniSpin 0.7s linear infinite;
+}
+
+@keyframes miniSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- FOOTER ---------- */
+.user-card-footer {
+  width: 100%;
+  text-align: center;
+  padding-top: 4px;
+}
+
+.user-card-since {
+  font-size: 0.72rem;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.02em;
+}
+
+.user-card-since-icon {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #64748b;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.user-card-since-icon.active {
+  background: #10b981;
+  color: #10b981;
+}
+.user-card-since-icon.inactive {
+  background: #64748b;
+  color: #64748b;
+}
+
+/* ---------- ACTIONS ---------- */
 .user-card-actions {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+  justify-content: center;
 }
 
-.user-action {
+.user-icon-action {
   flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  background: rgba(51, 65, 85, 0.6);
-  color: #cbd5e1;
+  padding: 9px 0;
+  background: rgba(51, 65, 85, 0.5);
   border: 1px solid rgba(71, 85, 105, 0.6);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  border-radius: 8px;
+  font-size: 1rem;
   cursor: pointer;
   margin: 0;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.1s;
   box-shadow: none;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, color 0.15s;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
 }
 
-.user-action:hover {
+.user-icon-action:hover {
   transform: translateY(-1px);
   filter: none;
 }
 
-.user-action:active { transform: translateY(0); }
+.user-icon-action:active { transform: translateY(0); }
 
 .user-action-progress:hover {
   background: rgba(56, 189, 248, 0.2);
   border-color: rgba(56, 189, 248, 0.6);
-  color: #7dd3fc;
 }
 
 .user-action-edit:hover {
   background: rgba(245, 158, 11, 0.2);
   border-color: rgba(245, 158, 11, 0.6);
-  color: #fbbf24;
 }
 
 .user-action-certs:hover {
   background: rgba(139, 92, 246, 0.2);
   border-color: rgba(139, 92, 246, 0.6);
-  color: #c4b5fd;
-}
-
-.user-action-delete {
-  flex: 0 0 auto;
-  padding: 7px 10px;
 }
 
 .user-action-delete:hover {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.6);
-  color: #f87171;
 }
 
-.user-action-disabled {
+.user-icon-action-disabled {
   flex: 1;
+  padding: 9px 0;
   text-align: center;
-  padding: 7px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
+  font-size: 1rem;
   background: rgba(15, 23, 42, 0.5);
   border: 1px dashed rgba(100, 116, 139, 0.4);
-  border-radius: 6px;
+  border-radius: 8px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* ---------- LIGHT THEME ---------- */
 html[data-theme="light"] .user-card,
 body.theme-light .user-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   border-color: rgba(56, 189, 248, 0.35);
 }
 
@@ -1098,33 +1198,65 @@ body.theme-light .user-card-name { color: #1e293b; }
 html[data-theme="light"] .user-card-meta,
 body.theme-light .user-card-meta { color: #64748b; }
 
-html[data-theme="light"] .user-card-body,
-body.theme-light .user-card-body {
+html[data-theme="light"] .user-card-since,
+body.theme-light .user-card-since { color: #64748b; }
+
+html[data-theme="light"] .user-card-stats,
+body.theme-light .user-card-stats {
   border-top-color: rgba(203, 213, 225, 0.8);
-  border-bottom-color: rgba(203, 213, 225, 0.8);
 }
 
-html[data-theme="light"] .user-hours-num,
-body.theme-light .user-hours-num {
+html[data-theme="light"] .user-mini-stat,
+body.theme-light .user-mini-stat {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+html[data-theme="light"] .user-mini-stat-value,
+body.theme-light .user-mini-stat-value {
   color: #0284c7;
   text-shadow: none;
 }
 
-html[data-theme="light"] .user-action,
-body.theme-light .user-action {
+html[data-theme="light"] .user-mini-stat-label,
+body.theme-light .user-mini-stat-label { color: #64748b; }
+
+html[data-theme="light"] .user-icon-action,
+body.theme-light .user-icon-action {
   background: rgba(241, 245, 249, 0.9);
   border-color: rgba(148, 163, 184, 0.4);
-  color: #334155;
+}
+
+html[data-theme="light"] .user-card-actions,
+body.theme-light .user-card-actions {
+  border-top-color: rgba(203, 213, 225, 0.8);
 }
 
 html[data-theme="light"] .user-avatar,
 body.theme-light .user-avatar {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9), 0 0 0 3px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 4px rgba(56, 189, 248, 0.5);
+}
+
+html[data-theme="light"] .user-status-dot,
+body.theme-light .user-status-dot {
+  border-color: rgba(255, 255, 255, 0.95);
 }
 
 @media (max-width: 640px) {
-  .user-grid { grid-template-columns: 1fr; }
-  .user-action { font-size: 0.72rem; padding: 6px 8px; }
+  .user-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .user-card { padding: 16px 14px 12px; }
+  .user-avatar,
+  .user-avatar-image,
+  .user-card-avatar-zone {
+    width: 68px;
+    height: 68px;
+  }
+  .user-avatar { font-size: 1.4rem; }
+  .user-card-name { font-size: 0.95rem; }
+  .user-mini-stat-value { font-size: 1.1rem; }
 }
 
 /* ============================================
