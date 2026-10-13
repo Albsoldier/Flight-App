@@ -29,6 +29,59 @@ router.get('/catalog', function(req, res) {
   res.json({ certificates: CERTIFICATE_CATALOG });
 });
 
+// ============================================
+// LIST ALL USERS' CERTIFICATES — visible to any authenticated user
+// (students can browse everyone's certs, read-only)
+// ============================================
+router.get('/all-users', async function(req, res) {
+  try {
+    const usersResult = await database.db.execute({
+      sql: `SELECT id, username, role, full_name, avatar_filename, total_hours, is_active
+            FROM users
+            WHERE is_active = 1
+            ORDER BY
+              CASE role WHEN 'admin' THEN 1 WHEN 'instructor' THEN 2 ELSE 3 END,
+              full_name ASC`,
+      args: []
+    });
+
+    const certsResult = await database.db.execute({
+      sql: `SELECT user_id, certificate_code, issued_at
+            FROM user_certificates
+            ORDER BY issued_at DESC`,
+      args: []
+    });
+
+    const certsByUser = {};
+    for (const row of certsResult.rows) {
+      if (!certsByUser[row.user_id]) certsByUser[row.user_id] = [];
+      certsByUser[row.user_id].push({
+        code: row.certificate_code,
+        issued_at: row.issued_at,
+        short: row.certificate_code,
+        name: (CERTIFICATE_CATALOG.find(function(c) { return c.code === row.certificate_code; }) || {}).name || row.certificate_code
+      });
+    }
+
+    const users = usersResult.rows.map(function(u) {
+      return {
+        id: u.id,
+        username: u.username,
+        role: u.role,
+        full_name: u.full_name,
+        avatar_filename: u.avatar_filename,
+        total_hours: u.total_hours || 0,
+        certificates: certsByUser[u.id] || []
+      };
+    });
+
+    res.json({ users: users });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/certificates/user/:userId
 router.get('/user/:userId', async function(req, res) {
   try {
