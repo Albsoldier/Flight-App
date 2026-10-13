@@ -848,17 +848,25 @@ function renderUsersPage() {
     html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
     html += '  </div>';
 
+        var canManage = currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor');
+
     var actionsHtml = '';
     actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
 
-    if (isAdmin && u.role !== 'admin') {
-      actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
+    if (canManage) {
+      // Instructors can issue certs on anyone except admins
       actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
-      actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
-    } else if (u.role === 'admin') {
-      actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
+
+      // Only admins can edit or delete, and never other admins
+      if (isAdmin && u.role !== 'admin') {
+        actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
+        actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
+      }
     }
 
+    if (!canManage && u.role === 'admin') {
+      actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
+    }
     html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
 
     html += '</div>';
