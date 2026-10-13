@@ -144,6 +144,8 @@
     <span class="breadcrumb-sep" id="allLogsSep" style="display:none;">·</span>
     <a href="#section-alllogs" class="breadcrumb-item" data-target="section-alllogs" id="allLogsCrumb" style="display:none;">All Logs</a>
     <span class="breadcrumb-sep">·</span>
+    <a href="#section-certificates" class="breadcrumb-item" data-target="section-certificates">Certificates</a>
+    <span class="breadcrumb-sep">·</span>
     <a href="#section-planner" class="breadcrumb-item" data-target="section-planner">Planner</a>
     <span class="breadcrumb-sep">·</span>
     <a href="#section-aircraft" class="breadcrumb-item" data-target="section-aircraft">Aircraft</a>
@@ -188,11 +190,30 @@
       </form>
     </section>
 
-        <section class="card instructor-only" style="display:none;">
+    <section class="card instructor-only" style="display:none;">
       <h2>Users</h2>
       <button id="refreshUsers" class="btn-secondary">Refresh</button>
       <div id="usersList"></div>
       <div class="pager" id="usersPager"></div>
+    </section>
+
+    <!-- PILOT CERTIFICATES (visible to everyone) -->
+    <section class="card" id="section-certificates">
+      <h2>🎖️ Pilot Certificates</h2>
+      <p class="muted" style="margin-bottom:16px;">
+        Browse certificates held by pilots and instructors across the school.
+      </p>
+      <div class="log-actions">
+        <input type="text" id="certSearchInput" placeholder="Search by name or username..." style="flex:1; min-width:200px; padding:8px 12px; background:rgba(15,23,42,0.8); border:1px solid rgba(51,65,85,0.8); border-radius:6px; color:#e2e8f0; font-size:0.9rem;">
+        <select id="certRoleFilter" style="padding:8px 12px; border-radius:6px; cursor:pointer; background:rgba(51,65,85,0.6); color:#cbd5e1; border:1px solid rgba(71,85,105,0.6);">
+          <option value="">All roles</option>
+          <option value="admin">Admins</option>
+          <option value="instructor">Instructors</option>
+          <option value="student">Students</option>
+        </select>
+        <button id="refreshCertGrid" class="btn-secondary">Refresh</button>
+      </div>
+      <div id="certGrid"></div>
     </section>
 
     <section class="card" id="section-flights">
