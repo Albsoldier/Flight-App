@@ -19,8 +19,11 @@ var paginationState = {
   rentals:     { page: 1, perPage: 10, total: 0 },
   myRentals:   { page: 1, perPage: 10, total: 0 },
   allLogs:     { page: 1, perPage: 25, total: 0 },
-  myLog:       { page: 1, perPage: 25, total: 0 }
+  myLog:       { page: 1, perPage: 25, total: 0 },
+  users:       { page: 1, perPage: 12, total: 0 }
 };
+
+var usersCache = [];
 
 function api(path, options) {
   options = options || {};
@@ -781,89 +784,99 @@ function loadOnlineUsers() {
 // ============================================
 function loadUsers() {
   api('/api/admin/users').then(function(data) {
-    if (!data.users || data.users.length === 0) {
-      document.getElementById('usersList').innerHTML = '<p class="muted">No users yet.</p>';
-      return;
-    }
-
-    var isAdmin = currentUser && currentUser.role === 'admin';
-
-    var html = '<div class="user-grid">';
-
-    for (var i = 0; i < data.users.length; i++) {
-      var u = data.users[i];
-      var safeName = escapeHtml(u.full_name).replace(/'/g, '&#39;');
-      var safeUsername = escapeHtml(u.username).replace(/'/g, '&#39;');
-      var initials = getInitials(u.full_name);
-      var hours = (u.total_hours || 0).toFixed(1);
-      var isActive = u.is_active === 1 || u.is_active === true;
-      var statusClass = isActive ? 'active' : 'inactive';
-      var statusLabel = isActive ? 'Active' : 'Inactive';
-      var since = u.created_at ? fmtDate(u.created_at).slice(0, 10) : '—';
-
-      html += '<div class="user-card user-card-' + u.role + '" data-user-id="' + u.id + '">';
-
-      // Avatar zone (big centered)
-      html += '  <div class="user-card-avatar-zone">';
-      if (u.avatar_filename) {
-        html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + ' user-avatar-clickable" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
-      } else {
-        html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
-      }
-      html += '    <span class="user-status-dot ' + statusClass + '" title="' + statusLabel + '"></span>';
-      html += '  </div>';
-
-      // Identity
-      html += '  <div class="user-card-identity">';
-      html += '    <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
-      html += '    <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
-      html += '    <span class="badge badge-' + u.role + ' user-card-role-badge">' + u.role + '</span>';
-      html += '  </div>';
-
-      // Mini stats
-      html += '  <div class="user-card-stats">';
-      html += '    <div class="user-mini-stat">';
-      html += '      <div class="user-mini-stat-value">' + hours + '</div>';
-      html += '      <div class="user-mini-stat-label">Hours</div>';
-      html += '    </div>';
-      html += '    <div class="user-mini-stat">';
-      html += '      <div class="user-mini-stat-value" data-cert-count><span class="mini-stat-spinner"></span></div>';
-      html += '      <div class="user-mini-stat-label">Certs</div>';
-      html += '    </div>';
-      html += '  </div>';
-
-      // Footer (member since)
-      html += '  <div class="user-card-footer">';
-      html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
-      html += '  </div>';
-
-      // Actions (icon-only)
-      var actionsHtml = '';
-      actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
-
-      if (isAdmin && u.role !== 'admin') {
-        actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
-        actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
-        actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
-      } else if (u.role === 'admin') {
-        actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
-      }
-
-      html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
-
-      html += '</div>';
-    }
-
-    html += '</div>';
-    document.getElementById('usersList').innerHTML = html;
-
-    // Load cert counts asynchronously per card
-    loadAllCertCounts(data.users);
+    usersCache = data.users || [];
+    paginationState.users.page = 1;
+    renderUsersPage();
   }).catch(function(err) {
     document.getElementById('usersList').innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+    renderPager('usersPager', paginationState.users, renderUsersPage);
   });
 }
 
+function renderUsersPage() {
+  if (!usersCache || usersCache.length === 0) {
+    document.getElementById('usersList').innerHTML = '<p class="muted">No users yet.</p>';
+    renderPager('usersPager', paginationState.users, renderUsersPage);
+    return;
+  }
+
+  var result = paginateArray(usersCache, paginationState.users);
+  var isAdmin = currentUser && currentUser.role === 'admin';
+
+  var html = '<div class="user-grid">';
+
+  for (var i = 0; i < result.items.length; i++) {
+    var u = result.items[i];
+    var safeName = escapeHtml(u.full_name).replace(/'/g, '&#39;');
+    var safeUsername = escapeHtml(u.username).replace(/'/g, '&#39;');
+    var initials = getInitials(u.full_name);
+    var hours = (u.total_hours || 0).toFixed(1);
+    var isActive = u.is_active === 1 || u.is_active === true;
+    var statusClass = isActive ? 'active' : 'inactive';
+    var statusLabel = isActive ? 'Active' : 'Inactive';
+    var since = u.created_at ? fmtDate(u.created_at).slice(0, 10) : '—';
+
+    html += '<div class="user-card user-card-' + u.role + '" data-user-id="' + u.id + '">';
+
+    // Avatar zone
+    html += '  <div class="user-card-avatar-zone">';
+    if (u.avatar_filename) {
+      html += '    <div class="user-avatar user-avatar-image avatar-' + u.role + ' user-avatar-clickable" onclick="openAvatarLightbox(' + u.id + ')" title="Click to enlarge"><img src="/api/admin/users/' + u.id + '/avatar?t=' + Date.now() + '" alt="' + escapeHtml(u.full_name) + '" loading="lazy"></div>';
+    } else {
+      html += '    <div class="user-avatar avatar-' + u.role + '">' + escapeHtml(initials) + '</div>';
+    }
+    html += '    <span class="user-status-dot ' + statusClass + '" title="' + statusLabel + '"></span>';
+    html += '  </div>';
+
+    // Identity
+    html += '  <div class="user-card-identity">';
+    html += '    <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
+    html += '    <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
+    html += '    <span class="badge badge-' + u.role + ' user-card-role-badge">' + u.role + '</span>';
+    html += '  </div>';
+
+    // Mini stats
+    html += '  <div class="user-card-stats">';
+    html += '    <div class="user-mini-stat">';
+    html += '      <div class="user-mini-stat-value">' + hours + '</div>';
+    html += '      <div class="user-mini-stat-label">Hours</div>';
+    html += '    </div>';
+    html += '    <div class="user-mini-stat">';
+    html += '      <div class="user-mini-stat-value" data-cert-count><span class="mini-stat-spinner"></span></div>';
+    html += '      <div class="user-mini-stat-label">Certs</div>';
+    html += '    </div>';
+    html += '  </div>';
+
+    // Footer
+    html += '  <div class="user-card-footer">';
+    html += '    <span class="user-card-since"><span class="user-card-since-icon ' + statusClass + '"></span> ' + statusLabel + ' since ' + since + '</span>';
+    html += '  </div>';
+
+    // Actions
+    var actionsHtml = '';
+    actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
+
+    if (isAdmin && u.role !== 'admin') {
+      actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
+      actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
+      actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
+    } else if (u.role === 'admin') {
+      actionsHtml += '<span class="user-icon-action-disabled" title="Admin account">🔒</span>';
+    }
+
+    html += '  <div class="user-card-actions">' + actionsHtml + '</div>';
+
+    html += '</div>';
+  }
+
+  html += '</div>';
+  document.getElementById('usersList').innerHTML = html;
+
+  renderPager('usersPager', paginationState.users, renderUsersPage);
+
+  // Fetch cert counts for the visible users only
+  loadAllCertCounts(result.items);
+}
 // Fetch cert count per user and update the mini-stat
 function loadAllCertCounts(users) {
   if (!users || users.length === 0) return;
