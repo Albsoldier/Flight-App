@@ -61,7 +61,7 @@ async function getOnlineUsers() {
     });
 
     const result = await database.db.execute({
-      sql: `SELECT DISTINCT u.id, u.username, u.full_name, u.role
+      sql: `SELECT DISTINCT u.id, u.username, u.full_name, u.role, u.pilot_designation
             FROM active_sessions a
             JOIN users u ON a.user_id = u.id
             WHERE u.is_active = 1
