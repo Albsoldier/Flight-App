@@ -340,6 +340,19 @@ function initDashboard() {
 
 function needsNameSetup(user) {
   if (!user) return false;
+
+  // Admins and instructors never get the automatic pilot-designation prompt.
+  // They only get prompted if their display name still looks like a placeholder.
+  if (user.role === 'admin' || user.role === 'instructor') {
+    var adminName = (user.full_name || '').trim();
+    if (!adminName) return true;
+    if (adminName === 'GTAW User') return true;
+    if (adminName === 'Discord User') return true;
+    if (/^(gtaw|discord)_/.test(adminName)) return true;
+    return false;
+  }
+
+  // Students: prompt for display name AND pilot designation.
   var name = (user.full_name || '').trim();
   if (!name) return true;
   if (name === 'GTAW User') return true;
