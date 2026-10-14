@@ -45,6 +45,20 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }
+    permissionsPolicy: {
+    features: {
+      camera: ['none'],
+      microphone: ['none'],
+      geolocation: ['none'],
+      payment: ['none'],
+      usb: ['none'],
+      magnetometer: ['none'],
+      gyroscope: ['none'],
+      accelerometer: ['none'],
+      fullscreen: ['self'],
+      autoplay: ['self']
+    }
+  }
 }));
 
 // ------------------------------------------------------------
