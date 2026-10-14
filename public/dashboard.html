@@ -129,6 +129,7 @@
       </div>
       <button id="themeToggle" class="theme-toggle" title="Toggle theme">🌙</button>
       <span id="userName"></span>
+      <span id="userDesignationChip" class="pilot-chip" style="display:none;"></span>
       <button id="editNameBtn" class="theme-toggle" title="Change display name">✏️</button>
       <span id="userRole" class="badge"></span>
       <button id="logoutBtn" class="btn-secondary">Log out</button>
@@ -266,7 +267,7 @@
       <div class="pager" id="taughtLogPager"></div>
     </section>
 
-    <!-- MY CERTIFICATES (visible to everyone, shows only own) -->
+    <!-- MY CERTIFICATES -->
     <section class="card" id="section-mycerts">
       <h2>🎖️ My Certificates</h2>
       <p class="muted" style="margin-bottom:16px;">
@@ -533,6 +534,19 @@
           >
           <small class="muted" id="displayNameError" style="display:none; color:#f87171; margin-top:6px;"></small>
         </div>
+
+        <div class="field">
+          <label for="pilotDesignationSelect">Pilot Designation</label>
+          <select id="pilotDesignationSelect">
+            <option value="student">Student</option>
+            <option value="pilot_a">Pilot — Airplane (Pilot-A)</option>
+            <option value="pilot_h">Pilot — Helicopter (Pilot-H)</option>
+          </select>
+          <small class="muted" style="display:block; margin-top:6px;">
+            Cosmetic only — does not affect your permissions.
+          </small>
+        </div>
+
         <div class="modal-actions">
           <button class="btn-secondary" id="skipNameBtn">Cancel</button>
           <button id="saveNameBtn">Save Name</button>
