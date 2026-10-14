@@ -45,21 +45,16 @@ app.use(helmet({
   },
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }
-    permissionsPolicy: {
-    features: {
-      camera: ['none'],
-      microphone: ['none'],
-      geolocation: ['none'],
-      payment: ['none'],
-      usb: ['none'],
-      magnetometer: ['none'],
-      gyroscope: ['none'],
-      accelerometer: ['none'],
-      fullscreen: ['self'],
-      autoplay: ['self']
-    }
-  }
 }));
+
+// Permissions-Policy — set manually for maximum compatibility
+app.use(function(req, res, next) {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), fullscreen=(self), autoplay=(self)'
+  );
+  next();
+});
 
 // ------------------------------------------------------------
 // CORS — restrict to your own origin(s) instead of "any"
