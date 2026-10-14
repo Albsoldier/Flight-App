@@ -116,7 +116,6 @@ async function initSchema() {
     )
   `);
 
-  // User certificates (many-to-many)
   await db.execute(`
     CREATE TABLE IF NOT EXISTS user_certificates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -130,7 +129,6 @@ async function initSchema() {
     )
   `);
 
-  // Aircraft rental requests
   await db.execute(`
     CREATE TABLE IF NOT EXISTS rental_requests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,7 +148,6 @@ async function initSchema() {
     )
   `);
 
-    // Notifications
   await db.execute(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,6 +171,7 @@ async function initSchema() {
   try { await db.execute("ALTER TABLE users ADD COLUMN gtaw_character TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN avatar_filename TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN pilot_designation TEXT"); } catch(e) {}
 
   console.log('✅ Database schema ready (Turso)');
 }
