@@ -254,6 +254,31 @@ router.get('/sessions/my', async function(req, res) {
   }
 });
 
+// ============================================
+// FLIGHTS I TAUGHT — instructor/admin only
+// Returns sessions where the current user was the instructor
+// ============================================
+router.get('/sessions/taught', authMiddleware.isInstructor, async function(req, res) {
+  try {
+    const result = await database.db.execute({
+      sql: `SELECT fs.*,
+                   u.full_name AS student_name,
+                   u.username AS student_username,
+                   u.role AS student_role
+            FROM flight_sessions fs
+            JOIN users u ON fs.student_id = u.id
+            WHERE fs.instructor_id = ?
+              AND fs.status = 'completed'
+            ORDER BY fs.start_time DESC`,
+      args: [req.session.userId]
+    });
+    res.json({ sessions: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/sessions/all', authMiddleware.isAdmin, async function(req, res) {
   try {
     const result = await database.db.execute(
