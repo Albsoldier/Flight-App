@@ -51,7 +51,7 @@ app.use(helmet({
 // CORS — restrict to your own origin(s) instead of "any"
 // ------------------------------------------------------------
 const ALLOWED_ORIGINS = [
-  'https://flight-app-saaa.onrender.com',
+  'https://saaa-flight.fun/',
   'http://localhost:3000',
   'http://localhost:10000'
 ];
