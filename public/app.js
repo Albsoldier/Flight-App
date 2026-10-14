@@ -11,8 +11,10 @@ var aircraftCache = [];
 var notamCache = [];
 var materialFoldersState = {};
 var rentalRequestsCache = [];
+var myRentalsCache = [];
 var notifCache = [];
 var notifRefreshTimer = null;
+var onlineUsersTimer = null;
 
 // Pagination state
 var paginationState = {
@@ -66,9 +68,17 @@ function toast(text, type) {
   }, 4000);
 }
 
+// Only append Z if the string doesn't already carry a timezone marker
+function _normalizeDateString(str) {
+  var s = String(str).replace(' ', 'T');
+  if (/[zZ]$/.test(s)) return s;
+  if (/[+\-]\d{2}:?\d{2}$/.test(s)) return s;
+  return s + 'Z';
+}
+
 function fmtDate(str) {
   if (!str) return '—';
-  var d = new Date(String(str).replace(' ', 'T') + 'Z');
+  var d = new Date(_normalizeDateString(str));
   if (isNaN(d.getTime())) return str;
   return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
 }
@@ -81,6 +91,18 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// Safely embed a string inside a single-quoted JS literal that lives
+// inside an HTML onclick attribute. Prevents quote breakouts for names
+// like O'Brien.
+function jsStr(s) {
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, '\\n')
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
 }
 
 // ============================================
@@ -112,7 +134,7 @@ function renderPager(pagerId, state, onPageChange) {
   }
 
   var html = '';
-  html += '<div class="pager-info">Showing ' + (state.total === 0 ? 0 : ((state.page - 1) * state.perPage + 1)) + '–' + Math.min(state.page * state.perPage, state.total) + ' of ' + state.total + '</div>';
+  html += '<div class="pager-info">Showing ' + ((state.page - 1) * state.perPage + 1) + '–' + Math.min(state.page * state.perPage, state.total) + ' of ' + state.total + '</div>';
   html += '<div class="pager-controls">';
   html += '  <button class="pager-btn" data-action="prev" ' + (state.page <= 1 ? 'disabled' : '') + '>‹ Prev</button>';
   html += '  <span class="pager-page">Page ' + state.page + ' of ' + totalPages + '</span>';
@@ -298,6 +320,11 @@ function needsNameSetup(user) {
 // ---------- SOCKET ----------
 function initSocket() {
   if (typeof io === 'undefined') return;
+  // Disconnect previous socket to avoid duplicate listeners
+  if (socket) {
+    try { socket.removeAllListeners(); socket.disconnect(); } catch (e) {}
+    socket = null;
+  }
   try {
     socket = io();
     socket.on('online-users', function(users) {
@@ -469,12 +496,12 @@ function setupDashboard() {
     rmlBtn.addEventListener('click', loadMyLog);
   }
 
-    var rtlBtn = document.getElementById('refreshTaughtLog');
+  var rtlBtn = document.getElementById('refreshTaughtLog');
   if (rtlBtn && !rtlBtn.dataset.bound) {
     rtlBtn.dataset.bound = '1';
     rtlBtn.addEventListener('click', loadTaughtLog);
   }
-  
+
   var plBtn = document.getElementById('printLogbook');
   if (plBtn && !plBtn.dataset.bound) {
     plBtn.dataset.bound = '1';
@@ -655,14 +682,15 @@ function setupDashboard() {
   loadNotams();
   loadWaypoints();
   loadMyRentals();
-    if (canManage) loadTaughtLog();
+  if (canManage) loadTaughtLog();
   if (canManage) loadRentals();
   loadNotifications();
   if (notifRefreshTimer) clearInterval(notifRefreshTimer);
   notifRefreshTimer = setInterval(loadNotifications, 60000);
   if (isAdmin) loadAllLogs();
 
-  if (isAdmin) setInterval(loadOnlineUsers, 30000);
+  if (onlineUsersTimer) clearInterval(onlineUsersTimer);
+  if (isAdmin) onlineUsersTimer = setInterval(loadOnlineUsers, 30000);
   resumeActiveFlight();
   initBreadcrumbNav();
 }
@@ -680,7 +708,7 @@ function resumeActiveFlight() {
     api('/api/flights/sessions/active/all').then(function(data) {
       if (data.sessions && data.sessions.length > 0) {
         var latest = data.sessions[0];
-        var start = new Date(latest.start_time);
+        var start = new Date(_normalizeDateString(latest.start_time));
         latest.elapsedSeconds = Math.floor((new Date() - start) / 1000);
         attachActiveSession(latest);
       }
@@ -703,9 +731,12 @@ function attachActiveSession(session) {
     if (notesEl) notesEl.value = session.notes;
   }
   startStopwatchDisplay();
-  document.getElementById('startFlightBtn').disabled = true;
-  document.getElementById('stopFlightBtn').disabled = false;
-  document.getElementById('stopwatchDisplay').classList.add('running');
+  var startBtn = document.getElementById('startFlightBtn');
+  var stopBtn = document.getElementById('stopFlightBtn');
+  var disp = document.getElementById('stopwatchDisplay');
+  if (startBtn) startBtn.disabled = true;
+  if (stopBtn) stopBtn.disabled = false;
+  if (disp) disp.classList.add('running');
   var info = document.getElementById('activeSession');
   if (info) info.textContent = 'Active flight #' + session.id + ' — ' + (session.student_name || session.student_id);
 }
@@ -818,8 +849,9 @@ function renderUsersPage() {
 
   for (var i = 0; i < result.items.length; i++) {
     var u = result.items[i];
-    var safeName = escapeHtml(u.full_name).replace(/'/g, '&#39;');
-    var safeUsername = escapeHtml(u.username).replace(/'/g, '&#39;');
+    // Use jsStr for onclick args (safe inside single-quoted JS literals)
+    var jsName = jsStr(u.full_name || '');
+    var jsUsername = jsStr(u.username || '');
     var initials = getInitials(u.full_name);
     var hours = (u.total_hours || 0).toFixed(1);
     var isActive = u.is_active === 1 || u.is_active === true;
@@ -860,16 +892,14 @@ function renderUsersPage() {
     html += '  </div>';
 
     var actionsHtml = '';
-    actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + safeName + '\')" title="View progress">📊</button>';
+    actionsHtml += '<button class="user-icon-action user-action-progress" onclick="showProgress(' + u.id + ', \'' + jsName + '\')" title="View progress">📊</button>';
 
     if (canManage) {
-      // Instructors + admins can issue certs
-      actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + safeName + '\')" title="Manage certificates">🎖️</button>';
+      actionsHtml += '<button class="user-icon-action user-action-certs" onclick="openCertsModal(' + u.id + ', \'' + jsName + '\')" title="Manage certificates">🎖️</button>';
 
-      // Only admins can edit or delete, and never other admins
       if (isAdmin && u.role !== 'admin') {
         actionsHtml += '<button class="user-icon-action user-action-edit" onclick="openEditUserModal(' + u.id + ')" title="Edit user">✏️</button>';
-        actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + safeUsername + '\')" title="Delete user">🗑️</button>';
+        actionsHtml += '<button class="user-icon-action user-action-delete" onclick="deleteUser(' + u.id + ', \'' + jsUsername + '\')" title="Delete user">🗑️</button>';
       }
     }
 
@@ -915,6 +945,19 @@ function getInitials(fullName) {
   var parts = String(fullName).trim().split(/\s+/);
   if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+// Map a certificate code to a CSS colour category
+function certCategory(code) {
+  if (!code) return 'default';
+  var c = String(code).toUpperCase();
+  if (c.indexOf('PPL') === 0) return 'ppl';
+  if (c.indexOf('CPL') === 0) return 'cpl';
+  if (c.indexOf('CFI') === 0) return 'cfi';
+  if (c === 'IR') return 'ir';
+  if (c.indexOf('MEL') === 0 || c.indexOf('MES') === 0) return 'mel';
+  if (c === 'ATP') return 'atp';
+  return 'default';
 }
 
 function loadInstructors() {
@@ -964,16 +1007,17 @@ function loadMyCertificates() {
     var html = '<div class="my-certs-grid">';
     for (var i = 0; i < certs.length; i++) {
       var c = certs[i];
-      html += '<div class="my-cert-card">';
+      var cat = certCategory(c.code || c.short);
+      html += '<div class="my-cert-card cert-cat-' + cat + '">';
       html += '  <div class="my-cert-badge">🎖️</div>';
       html += '  <div class="my-cert-body">';
       html += '    <div class="my-cert-code">' + escapeHtml(c.short) + '</div>';
       html += '    <div class="my-cert-name">' + escapeHtml(c.name) + '</div>';
       html += '    <div class="my-cert-meta">';
-      html += '      <span>Issued ' + fmtDate(c.issued_at) + '</span>';
+      html += '      <span>Issued <strong>' + fmtDate(c.issued_at) + '</strong></span>';
       if (c.issuer_name) {
         html += '      <span>·</span>';
-        html += '      <span>by ' + escapeHtml(c.issuer_name) + '</span>';
+        html += '      <span>by <strong>' + escapeHtml(c.issuer_name) + '</strong></span>';
       }
       html += '    </div>';
       html += '  </div>';
@@ -1413,17 +1457,21 @@ function doStopFlight() {
   api('/api/flights/sessions/' + activeSessionId + '/stop', { method: 'POST', body: JSON.stringify({ notes: notes }) }).then(function(result) {
     if (stopwatchInterval) clearInterval(stopwatchInterval);
     stopwatchInterval = null;
-    document.getElementById('startFlightBtn').disabled = false;
-    document.getElementById('stopFlightBtn').disabled = true;
-    document.getElementById('activeSession').textContent = '';
-    document.getElementById('stopwatchDisplay').textContent = '00:00:00';
-    document.getElementById('stopwatchDisplay').classList.remove('running');
-    document.getElementById('flightNotes').value = '';
+    var startBtn = document.getElementById('startFlightBtn');
+    var stopBtn = document.getElementById('stopFlightBtn');
+    var disp = document.getElementById('stopwatchDisplay');
+    var activeEl = document.getElementById('activeSession');
+    var notesEl = document.getElementById('flightNotes');
+    if (startBtn) startBtn.disabled = false;
+    if (stopBtn) stopBtn.disabled = true;
+    if (activeEl) activeEl.textContent = '';
+    if (disp) { disp.textContent = '00:00:00'; disp.classList.remove('running'); }
+    if (notesEl) notesEl.value = '';
     showMessage('Flight logged: ' + result.duration + ' hours', 'success');
     activeSessionId = null;
     activeSessionStudentId = null;
     stopwatchStartTime = null;
-        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
+    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
       loadStats();
       loadUsers();
       loadTaughtLog();
@@ -1463,11 +1511,11 @@ function loadMaterials() {
       var isOpen = materialFoldersState[cat];
       if (isOpen === undefined) isOpen = (c === 0);
       var openClass = isOpen ? ' open' : '';
-      var safeCat = cat.replace(/'/g, '&#39;');
+      var jsCat = jsStr(cat);
 
       html += '<div class="material-folder' + openClass + '">';
 
-      html += '  <div class="material-folder-header" onclick="toggleMaterialFolder(\'' + safeCat + '\')">';
+      html += '  <div class="material-folder-header" onclick="toggleMaterialFolder(\'' + jsCat + '\')">';
       html += '    <span class="material-folder-icon">📁</span>';
       html += '    <span class="material-folder-name">' + escapeHtml(cat) + '</span>';
       html += '    <span class="material-folder-count">' + items.length + '</span>';
@@ -1499,8 +1547,8 @@ function loadMaterials() {
         html += '    <div class="material-actions">';
         html += '      <a href="/api/materials/' + m.id + '/download" target="_blank" class="btn-small btn-download">Download</a>';
         if (isAdmin) {
-          var safeTitle = escapeHtml(m.title).replace(/'/g, '&#39;');
-          html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + safeTitle + '\')">Delete</button>';
+          var jsTitle = jsStr(m.title);
+          html += '      <button class="btn-small btn-danger" onclick="deleteMaterial(' + m.id + ', \'' + jsTitle + '\')">Delete</button>';
         }
         html += '    </div>';
         html += '  </div>';
@@ -1683,13 +1731,13 @@ function renderAircraft() {
     html += '<div class="aircraft-actions">';
     html += '<button class="btn-secondary btn-small" onclick="openScheduleModal(' + ac.id + ')">📅 View Schedule</button>';
     if (ac.is_available === 1) {
-      var safeLabel = (ac.tail_number + ' — ' + ac.model).replace(/'/g, '&#39;');
-      html += '<button class="btn-small btn-download" onclick="openRentalRequestModal(' + ac.id + ', \'' + safeLabel + '\')">📝 Request Rental</button>';
+      var jsLabel = jsStr(ac.tail_number + ' — ' + ac.model);
+      html += '<button class="btn-small btn-download" onclick="openRentalRequestModal(' + ac.id + ', \'' + jsLabel + '\')">📝 Request Rental</button>';
     }
     if (isAdmin) {
-      var safeTail = escapeHtml(ac.tail_number).replace(/'/g, '&#39;');
+      var jsTail = jsStr(ac.tail_number);
       html += '<button class="btn-secondary btn-small" onclick="editAircraft(' + ac.id + ')">Edit</button> ';
-      html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + safeTail + '\')">Delete</button>';
+      html += '<button class="btn-danger btn-small" onclick="deleteAircraft(' + ac.id + ', \'' + jsTail + '\')">Delete</button>';
     }
     html += '</div>';
     html += '</div></div>';
@@ -1810,6 +1858,7 @@ function submitRentalRequest(force) {
     showMessage('Rental request submitted', 'success');
     closeRentalRequestModal();
     loadMyRentals();
+    if (btn) btn.disabled = false;
   }).catch(function(err) {
     if (err.message && err.message.indexOf('conflict') !== -1) {
       if (confirm('⚠️ This overlaps an approved rental on the same aircraft.\n\nSubmit anyway?')) {
@@ -1823,7 +1872,6 @@ function submitRentalRequest(force) {
       errEl.textContent = err.message;
       errEl.style.display = 'block';
     }
-  }).then(function() {
     if (btn) btn.disabled = false;
   });
 }
@@ -1832,15 +1880,13 @@ function loadMyRentals() {
   var el = document.getElementById('myRentalsList');
   if (!el) return;
   api('/api/rentals/my').then(function(data) {
-    var requests = data.requests || [];
-    paginationState.myRentals.total = requests.length;
+    myRentalsCache = data.requests || [];
     paginationState.myRentals.page = 1;
-    if (requests.length === 0) {
+    if (myRentalsCache.length === 0) {
       el.innerHTML = '<p class="muted">You have no rental requests yet.</p>';
       renderPager('myRentalsPager', paginationState.myRentals, renderMyRentalsPage);
       return;
     }
-    window.__myRentalsCache = requests;
     renderMyRentalsPage();
   }).catch(function(err) {
     el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
@@ -1848,8 +1894,7 @@ function loadMyRentals() {
 }
 
 function renderMyRentalsPage() {
-  var cache = window.__myRentalsCache || [];
-  var result = paginateArray(cache, paginationState.myRentals);
+  var result = paginateArray(myRentalsCache, paginationState.myRentals);
   document.getElementById('myRentalsList').innerHTML = renderRentalList(result.items, false);
   renderPager('myRentalsPager', paginationState.myRentals, renderMyRentalsPage);
 }
@@ -2285,7 +2330,7 @@ function notifIcon(type) {
 
 function fmtNotifTime(str) {
   if (!str) return '';
-  var d = new Date(String(str).replace(' ', 'T') + 'Z');
+  var d = new Date(_normalizeDateString(str));
   if (isNaN(d.getTime())) return str;
   var diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diff < 60) return 'just now';
@@ -2489,7 +2534,7 @@ function loadWaypoints() {
     var waypoints = data.waypoints || [];
     var optionsHtml = '<option value="">— Select waypoint —</option>';
     for (var i = 0; i < waypoints.length; i++) {
-      optionsHtml += '<option value="' + waypoints[i].name + '">' + waypoints[i].name + '</option>';
+      optionsHtml += '<option value="' + escapeHtml(waypoints[i].name) + '">' + escapeHtml(waypoints[i].name) + '</option>';
     }
     fromSelect.innerHTML = optionsHtml;
     toSelect.innerHTML = optionsHtml;
@@ -2690,7 +2735,10 @@ function openEditUserModal(userId) {
 
     if (pickBtn && !pickBtn.dataset.bound) {
       pickBtn.dataset.bound = '1';
-      pickBtn.addEventListener('click', function() { input.click(); });
+      pickBtn.addEventListener('click', function() {
+        var inp = document.getElementById('editUserAvatarInput');
+        if (inp) inp.click();
+      });
     }
 
     if (input && !input.dataset.bound) {
@@ -2872,10 +2920,11 @@ function renderUserCerts(held, catalog) {
   var html = '';
   for (var i = 0; i < held.length; i++) {
     var c = held[i];
+    var jsCode = jsStr(c.code);
     html += '<div class="cert-chip">';
     html += '<span class="cert-chip-code">' + escapeHtml(c.short) + '</span>';
     html += '<span class="cert-chip-name">' + escapeHtml(c.name) + '</span>';
-    html += '<button class="cert-chip-remove" title="Revoke" onclick="revokeCert(' + c.id + ', \'' + escapeHtml(c.code) + '\')">&times;</button>';
+    html += '<button class="cert-chip-remove" title="Revoke" onclick="revokeCert(' + c.id + ', \'' + jsCode + '\')">&times;</button>';
     html += '</div>';
   }
   el.innerHTML = html;
@@ -2890,7 +2939,7 @@ function renderCertDropdown(catalog, held) {
   for (var i = 0; i < catalog.length; i++) {
     var c = catalog[i];
     if (heldCodes.indexOf(c.code) !== -1) continue;
-    html += '<option value="' + c.code + '">' + c.short + ' — ' + escapeHtml(c.name) + '</option>';
+    html += '<option value="' + escapeHtml(c.code) + '">' + escapeHtml(c.short) + ' — ' + escapeHtml(c.name) + '</option>';
   }
   select.innerHTML = html;
 
@@ -2917,7 +2966,6 @@ function renderCertDropdown(catalog, held) {
         var heading = document.getElementById('certsUserHeading').textContent;
         var userName = heading.split(' (')[0];
         openCertsModal(certsCurrentUserId, userName);
-        // If the current user got a cert on themselves, refresh My Certificates
         if (certsCurrentUserId === currentUser.id) loadMyCertificates();
       }).catch(function(err) {
         errEl.textContent = err.message;
@@ -2932,14 +2980,13 @@ function renderCertDropdown(catalog, held) {
 function revokeCert(certId, code) {
   if (!confirm('Revoke this certificate?')) return;
 
-  api('/api/certificates/user/' + certsCurrentUserId + '/' + code, {
+  api('/api/certificates/user/' + certsCurrentUserId + '/' + encodeURIComponent(code), {
     method: 'DELETE'
   }).then(function() {
     showMessage('Certificate revoked', 'success');
     var heading = document.getElementById('certsUserHeading').textContent;
     var userName = heading.split(' (')[0];
     openCertsModal(certsCurrentUserId, userName);
-    // If revoked from current user, refresh their My Certificates view
     if (certsCurrentUserId === currentUser.id) loadMyCertificates();
   }).catch(function(err) {
     showMessage(err.message, 'error');
