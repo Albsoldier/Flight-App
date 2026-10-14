@@ -106,6 +106,36 @@ function jsStr(s) {
 }
 
 // ============================================
+// PILOT DESIGNATION HELPERS (cosmetic)
+// ============================================
+function pilotDesignationLabel(code) {
+  if (code === 'pilot_a') return 'Pilot-A';
+  if (code === 'pilot_h') return 'Pilot-H';
+  if (code === 'student') return 'Student';
+  return '';
+}
+
+function pilotDesignationClass(code) {
+  if (code === 'pilot_a') return 'pilot-a';
+  if (code === 'pilot_h') return 'pilot-h';
+  return 'student';
+}
+
+function updateHeaderDesignation() {
+  var chip = document.getElementById('userDesignationChip');
+  if (!chip) return;
+  var code = currentUser && currentUser.pilot_designation;
+  if (!code) {
+    chip.style.display = 'none';
+    chip.textContent = '';
+    return;
+  }
+  chip.textContent = pilotDesignationLabel(code);
+  chip.className = 'pilot-chip pilot-chip-' + pilotDesignationClass(code);
+  chip.style.display = 'inline-flex';
+}
+
+// ============================================
 // PAGINATION HELPERS
 // ============================================
 function paginateArray(arr, state) {
@@ -295,6 +325,7 @@ function initDashboard() {
     document.getElementById('userName').textContent = currentUser.full_name;
     document.getElementById('userRole').textContent = currentUser.role;
     document.getElementById('userRole').className = 'badge badge-' + currentUser.role;
+    updateHeaderDesignation();
     startUtcClock();
     setupDashboard();
     initSocket();
@@ -314,13 +345,13 @@ function needsNameSetup(user) {
   if (name === 'GTAW User') return true;
   if (name === 'Discord User') return true;
   if (/^(gtaw|discord)_/.test(name)) return true;
+  if (!user.pilot_designation) return true;
   return false;
 }
 
 // ---------- SOCKET ----------
 function initSocket() {
   if (typeof io === 'undefined') return;
-  // Disconnect previous socket to avoid duplicate listeners
   if (socket) {
     try { socket.removeAllListeners(); socket.disconnect(); } catch (e) {}
     socket = null;
@@ -340,7 +371,11 @@ function initSocket() {
         var html = '';
         for (var i = 0; i < users.length; i++) {
           var u = users[i];
-          html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span></div>';
+          html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span>';
+          if (u.pilot_designation) {
+            html += ' <span class="pilot-chip pilot-chip-' + pilotDesignationClass(u.pilot_designation) + '">' + pilotDesignationLabel(u.pilot_designation) + '</span>';
+          }
+          html += '</div>';
         }
         list.innerHTML = html;
       }
@@ -813,7 +848,11 @@ function loadOnlineUsers() {
       var html = '';
       for (var i = 0; i < data.users.length; i++) {
         var u = data.users[i];
-        html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span></div>';
+        html += '<div class="list-item"><strong>' + escapeHtml(u.full_name) + '</strong> <span class="badge badge-' + u.role + '">' + u.role + '</span>';
+        if (u.pilot_designation) {
+          html += ' <span class="pilot-chip pilot-chip-' + pilotDesignationClass(u.pilot_designation) + '">' + pilotDesignationLabel(u.pilot_designation) + '</span>';
+        }
+        html += '</div>';
       }
       document.getElementById('onlineUsers').innerHTML = html;
     }
@@ -849,7 +888,6 @@ function renderUsersPage() {
 
   for (var i = 0; i < result.items.length; i++) {
     var u = result.items[i];
-    // Use jsStr for onclick args (safe inside single-quoted JS literals)
     var jsName = jsStr(u.full_name || '');
     var jsUsername = jsStr(u.username || '');
     var initials = getInitials(u.full_name);
@@ -874,6 +912,9 @@ function renderUsersPage() {
     html += '    <div class="user-card-name">' + escapeHtml(u.full_name) + '</div>';
     html += '    <div class="user-card-meta">@' + escapeHtml(u.username) + ' · #' + u.id + '</div>';
     html += '    <span class="badge badge-' + u.role + ' user-card-role-badge">' + u.role + '</span>';
+    if (u.pilot_designation) {
+      html += '    <span class="pilot-chip pilot-chip-' + pilotDesignationClass(u.pilot_designation) + '">' + pilotDesignationLabel(u.pilot_designation) + '</span>';
+    }
     html += '  </div>';
 
     html += '  <div class="user-card-stats">';
@@ -947,7 +988,6 @@ function getInitials(fullName) {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
-// Map a certificate code to a CSS colour category
 function certCategory(code) {
   if (!code) return 'default';
   var c = String(code).toUpperCase();
@@ -988,7 +1028,7 @@ function deleteUser(id, username) {
 }
 
 // ============================================
-// MY CERTIFICATES — visible to the current user only
+// MY CERTIFICATES
 // ============================================
 function loadMyCertificates() {
   var el = document.getElementById('myCertsList');
@@ -1111,7 +1151,7 @@ function renderMyLogPage() {
 }
 
 // ============================================
-// FLIGHTS I TAUGHT — instructor + admin
+// FLIGHTS I TAUGHT
 // ============================================
 var taughtLogCache = [];
 
@@ -2598,6 +2638,7 @@ function openNameModal(isFirstLogin) {
   var modal = document.getElementById('nameModal');
   var title = document.getElementById('nameModalTitle');
   var input = document.getElementById('displayNameInput');
+  var designationSelect = document.getElementById('pilotDesignationSelect');
   var skipBtn = document.getElementById('skipNameBtn');
   var saveBtn = document.getElementById('saveNameBtn');
   var errorEl = document.getElementById('displayNameError');
@@ -2617,6 +2658,11 @@ function openNameModal(isFirstLogin) {
     input.value = '';
   }
 
+  if (designationSelect) {
+    var cur = (currentUser && currentUser.pilot_designation) || 'student';
+    designationSelect.value = cur;
+  }
+
   errorEl.style.display = 'none';
   errorEl.textContent = '';
   modal.style.display = 'flex';
@@ -2626,6 +2672,7 @@ function openNameModal(isFirstLogin) {
     saveBtn.dataset.bound = '1';
     saveBtn.addEventListener('click', function() {
       var name = input.value.trim();
+      var designation = designationSelect ? designationSelect.value : 'student';
 
       if (!name) {
         errorEl.textContent = 'Please enter a name';
@@ -2646,13 +2693,16 @@ function openNameModal(isFirstLogin) {
       saveBtn.disabled = true;
       api('/api/auth/set-name', {
         method: 'POST',
-        body: JSON.stringify({ fullName: name })
+        body: JSON.stringify({ fullName: name, pilotDesignation: designation })
       }).then(function(data) {
         currentUser.full_name = data.fullName;
+        currentUser.pilot_designation = data.pilotDesignation;
         document.getElementById('userName').textContent = data.fullName;
+        updateHeaderDesignation();
         closeNameModal();
-        showMessage('Display name updated', 'success');
+        showMessage('Profile updated', 'success');
         saveBtn.disabled = false;
+        if (currentUser.role === 'admin' || currentUser.role === 'instructor') loadUsers();
       }).catch(function(err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
@@ -2874,7 +2924,7 @@ window.closeEditUserModal = closeEditUserModal;
 window.saveUserEdit = saveUserEdit;
 
 // ============================================
-// CERTIFICATES — Manage modal (admin + instructor)
+// CERTIFICATES — Manage modal
 // ============================================
 var certCatalogCache = null;
 var certsCurrentUserId = null;
