@@ -3,6 +3,7 @@ const router = express.Router();
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const notif = require('./notifications');
+const discord = require('../discord');                       // ← DISCORD
 
 router.use(authMiddleware.isAuthenticated);
 
@@ -23,8 +24,9 @@ router.post('/', async function(req, res) {
       return res.status(400).json({ error: 'Duration must be between 0 and 24 hours' });
     }
 
+    // ← DISCORD: added hourly_rate so the embed can show it
     const acResult = await database.db.execute({
-      sql: 'SELECT id, tail_number, model, is_available FROM aircraft WHERE id = ?',
+      sql: 'SELECT id, tail_number, model, is_available, hourly_rate FROM aircraft WHERE id = ?',
       args: [aircraftId]
     });
     const aircraft = acResult.rows[0];
@@ -109,6 +111,18 @@ router.post('/', async function(req, res) {
       });
       io.emit('notification-event', {});
     }
+
+    // ← DISCORD: fire-and-forget. A Discord outage must never fail the request.
+    discord.notifyNewRentalRequest({
+      id: newId,
+      tail_number: aircraft.tail_number,
+      model: aircraft.model,
+      hourly_rate: aircraft.hourly_rate,
+      requester_name: requesterName,
+      start_date: startDate,
+      duration_hours: durationHours,
+      notes: notes
+    }).catch(function() {});
 
     res.json({ success: true, requestId: newId });
   } catch (err) {
@@ -224,6 +238,33 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
       io.emit('notification-event', {});
     }
 
+    // ← DISCORD: fetch joined data so the embed can show aircraft + names.
+    // Fire-and-forget so a failure here can't break the response.
+    database.db.execute({
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.status, r.review_notes,
+                   a.tail_number, a.model,
+                   u.full_name  AS requester_name,
+                   rv.full_name AS reviewer_name
+            FROM rental_requests r
+            LEFT JOIN aircraft a ON r.aircraft_id = a.id
+            LEFT JOIN users u    ON r.requester_id = u.id
+            LEFT JOIN users rv   ON r.reviewed_by = rv.id
+            WHERE r.id = ?`,
+      args: [id]
+    }).then(function(joined) {
+      const row = joined.rows[0];
+      if (!row) return;
+      discord.notifyRentalReviewed({
+        id: row.id,
+        status: row.status,
+        tail_number: row.tail_number,
+        model: row.model,
+        requester_name: row.requester_name,
+        reviewer_name: row.reviewer_name,
+        review_notes: row.review_notes
+      }).catch(function() {});
+    }).catch(function() {});
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -252,10 +293,32 @@ router.delete('/:id', async function(req, res) {
       return res.status(400).json({ error: 'Only pending requests can be cancelled' });
     }
 
+    // ← DISCORD: capture joined info before the row disappears.
+    // We fetch it and stash it in a variable; the await keeps it simple.
+    let discordPayload = null;
+    try {
+      const joined = await database.db.execute({
+        sql: `SELECT r.id, r.start_date, r.duration_hours,
+                     a.tail_number, a.model,
+                     u.full_name AS requester_name
+              FROM rental_requests r
+              LEFT JOIN aircraft a ON r.aircraft_id = a.id
+              LEFT JOIN users u    ON r.requester_id = u.id
+              WHERE r.id = ?`,
+        args: [id]
+      });
+      discordPayload = joined.rows[0] || null;
+    } catch (e) { /* non-fatal — just skip the Discord ping */ }
+
     await database.db.execute({
       sql: 'DELETE FROM rental_requests WHERE id = ?',
       args: [id]
     });
+
+    // ← DISCORD: fire-and-forget
+    if (discordPayload) {
+      discord.notifyRentalCancelled(discordPayload).catch(function() {});
+    }
 
     res.json({ success: true });
   } catch (err) {
