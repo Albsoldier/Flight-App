@@ -5,6 +5,10 @@ const router = express.Router();
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 
+// Cosmetic self-declared pilot designations. Separate from `role`
+// (admin/instructor/student) which controls permissions.
+const ALLOWED_PILOT_DESIGNATIONS = ['student', 'pilot_a', 'pilot_h'];   // ← NEW
+
 async function establishSession(req, user) {
   req.session.userId = user.id;
   req.session.username = user.username;
@@ -80,7 +84,8 @@ router.post('/login', async function(req, res) {
         username: user.username,
         role: user.role,
         fullName: user.full_name,
-        email: user.email
+        email: user.email,
+        pilot_designation: user.pilot_designation || null       // ← NEW
       }
     });
   } catch (err) {
@@ -105,7 +110,7 @@ router.get('/me', async function(req, res) {
   }
   try {
     const result = await database.db.execute({
-      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username, gtaw_username, gtaw_character FROM users WHERE id = ?',
+      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username, gtaw_username, gtaw_character, pilot_designation FROM users WHERE id = ?',   // ← NEW column
       args: [req.session.userId]
     });
     const user = result.rows[0];
@@ -117,13 +122,15 @@ router.get('/me', async function(req, res) {
   }
 });
 
-// UPDATE DISPLAY NAME
+// UPDATE DISPLAY NAME + PILOT DESIGNATION
 router.post('/set-name', async function(req, res) {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
   const fullName = (req.body.fullName || '').trim();
+  const rawDesignation = req.body.pilotDesignation;                       // ← NEW
+  const designation = (rawDesignation == null ? '' : String(rawDesignation)).trim();
 
   if (!fullName) {
     return res.status(400).json({ error: 'Name is required' });
@@ -138,15 +145,45 @@ router.post('/set-name', async function(req, res) {
     return res.status(400).json({ error: 'Name contains invalid characters' });
   }
 
+  // Validate designation if provided. Empty string means "leave unchanged".
+  let newDesignation = null;
+  if (designation) {
+    if (ALLOWED_PILOT_DESIGNATIONS.indexOf(designation) === -1) {
+      return res.status(400).json({ error: 'Invalid pilot designation' });
+    }
+    newDesignation = designation;
+  }
+
   try {
-    await database.db.execute({
-      sql: 'UPDATE users SET full_name = ? WHERE id = ?',
-      args: [fullName, req.session.userId]
-    });
+    if (newDesignation) {
+      await database.db.execute({
+        sql: 'UPDATE users SET full_name = ?, pilot_designation = ? WHERE id = ?',
+        args: [fullName, newDesignation, req.session.userId]
+      });
+    } else {
+      await database.db.execute({
+        sql: 'UPDATE users SET full_name = ? WHERE id = ?',
+        args: [fullName, req.session.userId]
+      });
+    }
 
     req.session.fullName = fullName;
 
-    res.json({ success: true, fullName: fullName });
+    // Return the effective designation so the client can update live
+    let currentDesignation = newDesignation;
+    if (!currentDesignation) {
+      const r = await database.db.execute({
+        sql: 'SELECT pilot_designation FROM users WHERE id = ?',
+        args: [req.session.userId]
+      });
+      currentDesignation = r.rows[0] ? r.rows[0].pilot_designation : null;
+    }
+
+    res.json({
+      success: true,
+      fullName: fullName,
+      pilotDesignation: currentDesignation                        // ← NEW
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update name' });
@@ -288,7 +325,6 @@ router.get('/discord/callback', async function(req, res) {
 // GTAW OAUTH 2.0
 // ============================================
 
-// Step 1: Redirect to GTAW
 router.get('/gtaw', function(req, res) {
   const clientId = process.env.GTAW_CLIENT_ID;
   const redirectUri = process.env.GTAW_REDIRECT_URI;
@@ -315,7 +351,6 @@ router.get('/gtaw', function(req, res) {
   res.redirect(baseUrl + '/oauth/authorize?' + params.toString());
 });
 
-// Step 2: Handle GTAW callback
 router.get('/gtaw/callback', async function(req, res) {
   const code = req.query.code;
   const state = req.query.state;
