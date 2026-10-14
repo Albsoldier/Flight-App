@@ -52,6 +52,7 @@ app.use(helmet({
 // ------------------------------------------------------------
 const ALLOWED_ORIGINS = [
   'https://saaa-flight.fun/',
+  'https://flight-app-saaa.onrender.com',
   'http://localhost:3000',
   'http://localhost:10000'
 ];
