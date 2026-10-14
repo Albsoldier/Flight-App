@@ -20,6 +20,7 @@ var paginationState = {
   myRentals:   { page: 1, perPage: 10, total: 0 },
   allLogs:     { page: 1, perPage: 25, total: 0 },
   myLog:       { page: 1, perPage: 25, total: 0 },
+  taughtLog:   { page: 1, perPage: 25, total: 0 },
   users:       { page: 1, perPage: 12, total: 0 }
 };
 
@@ -467,6 +468,13 @@ function setupDashboard() {
     rmlBtn.dataset.bound = '1';
     rmlBtn.addEventListener('click', loadMyLog);
   }
+
+    var rtlBtn = document.getElementById('refreshTaughtLog');
+  if (rtlBtn && !rtlBtn.dataset.bound) {
+    rtlBtn.dataset.bound = '1';
+    rtlBtn.addEventListener('click', loadTaughtLog);
+  }
+  
   var plBtn = document.getElementById('printLogbook');
   if (plBtn && !plBtn.dataset.bound) {
     plBtn.dataset.bound = '1';
@@ -647,6 +655,7 @@ function setupDashboard() {
   loadNotams();
   loadWaypoints();
   loadMyRentals();
+    if (canManage) loadTaughtLog();
   if (canManage) loadRentals();
   loadNotifications();
   if (notifRefreshTimer) clearInterval(notifRefreshTimer);
@@ -1057,6 +1066,64 @@ function renderMyLogPage() {
   renderPager('myLogPager', paginationState.myLog, renderMyLogPage);
 }
 
+// ============================================
+// FLIGHTS I TAUGHT — instructor + admin
+// ============================================
+var taughtLogCache = [];
+
+function loadTaughtLog() {
+  var el = document.getElementById('taughtLogList');
+  if (!el) return;
+
+  api('/api/flights/sessions/taught').then(function(data) {
+    taughtLogCache = data.sessions || [];
+    if (taughtLogCache.length === 0) {
+      el.innerHTML = '<p class="muted">You haven\'t logged any flights for students yet.</p>';
+      renderPager('taughtLogPager', paginationState.taughtLog, renderTaughtLogPage);
+      return;
+    }
+    renderTaughtLogPage();
+  }).catch(function(err) {
+    el.innerHTML = '<p class="muted">' + escapeHtml(err.message) + '</p>';
+  });
+}
+
+function renderTaughtLogPage() {
+  var result = paginateArray(taughtLogCache, paginationState.taughtLog);
+
+  var totalHours = 0;
+  for (var t = 0; t < taughtLogCache.length; t++) totalHours += (taughtLogCache[t].duration_hours || 0);
+
+  var html = '<p class="muted" style="margin-bottom:10px;">Total: <strong style="color:#38bdf8;">' + totalHours.toFixed(2) + ' hours</strong> across ' + taughtLogCache.length + ' flights taught</p>';
+  html += '<table class="table"><thead><tr>' +
+    '<th>Date</th>' +
+    '<th>Student</th>' +
+    '<th>Aircraft</th>' +
+    '<th>Type</th>' +
+    '<th>Notes</th>' +
+    '<th>Duration</th>' +
+    '</tr></thead><tbody>';
+
+  for (var i = 0; i < result.items.length; i++) {
+    var s = result.items[i];
+    var studentName = s.student_name || ('#' + s.student_id);
+    html += '<tr>';
+    html += '<td>' + fmtDate(s.start_time) + '</td>';
+    html += '<td><strong>' + escapeHtml(studentName) + '</strong></td>';
+    html += '<td>' + escapeHtml(s.aircraft || '—') + '</td>';
+    html += '<td>' + escapeHtml(s.flight_type || '—') + '</td>';
+    html += '<td class="notes-cell">' + escapeHtml(s.notes || '—') + '</td>';
+    html += '<td>' + (s.duration_hours || 0).toFixed(2) + ' h</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('taughtLogList').innerHTML = html;
+
+  renderPager('taughtLogPager', paginationState.taughtLog, renderTaughtLogPage);
+}
+
+window.loadTaughtLog = loadTaughtLog;
+
 // ---------- ALL FLIGHT LOGS ----------
 function loadAllLogs() {
   api('/api/flights/sessions/all').then(function(data) {
@@ -1356,7 +1423,11 @@ function doStopFlight() {
     activeSessionId = null;
     activeSessionStudentId = null;
     stopwatchStartTime = null;
-    if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) { loadStats(); loadUsers(); }
+        if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'instructor')) {
+      loadStats();
+      loadUsers();
+      loadTaughtLog();
+    }
     loadMyLog();
     if (currentUser && currentUser.role === 'admin') loadAllLogs();
   }).catch(function(err) { showMessage(err.message, 'error'); });
