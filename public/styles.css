@@ -4328,3 +4328,76 @@ body.theme-light .my-cert-meta strong { color: #475569; }
   .my-cert-name { font-size: 0.95rem; }
   .my-cert-code { letter-spacing: 0.18em; }
 }
+
+/* ============================================
+   PILOT DESIGNATION CHIP
+   Cosmetic label: Student / Pilot-A / Pilot-H
+   ============================================ */
+.pilot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid;
+  white-space: nowrap;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.pilot-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Student — slate grey */
+.pilot-chip-student {
+  background: rgba(100, 116, 139, 0.15);
+  border-color: rgba(100, 116, 139, 0.5);
+  color: #94a3b8;
+}
+
+/* Pilot-A (Airplane) — sky blue */
+.pilot-chip-pilot-a {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+}
+
+/* Pilot-H (Helicopter) — amber */
+.pilot-chip-pilot-h {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: #fbbf24;
+}
+
+/* Light theme overrides */
+html[data-theme="light"] .pilot-chip-student,
+body.theme-light .pilot-chip-student {
+  background: rgba(226, 232, 240, 0.8);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+html[data-theme="light"] .pilot-chip-pilot-a,
+body.theme-light .pilot-chip-pilot-a {
+  background: rgba(56, 189, 248, 0.15);
+  color: #0284c7;
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+html[data-theme="light"] .pilot-chip-pilot-h,
+body.theme-light .pilot-chip-pilot-h {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.6);
+}
