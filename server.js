@@ -31,12 +31,25 @@ app.set('trust proxy', 1);
 // ------------------------------------------------------------
 app.use(helmet({
   contentSecurityPolicy: {
+    useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.socket.io"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://cdn.socket.io",
+        "https://cdn.cloudflareinsights.com"
+      ],
+      scriptSrcAttr: ["'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", "wss:", "https:", "ws:"],
+      connectSrc: [
+        "'self'",
+        "wss:",
+        "ws:",
+        "https:",
+        "https://cloudflareinsights.com"
+      ],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
@@ -46,16 +59,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
-
-// Permissions-Policy — set manually for maximum compatibility
-app.use(function(req, res, next) {
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), fullscreen=(self), autoplay=(self)'
-  );
-  next();
-});
-
 // ------------------------------------------------------------
 // CORS — restrict to your own origin(s) instead of "any"
 // ------------------------------------------------------------
