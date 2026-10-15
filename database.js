@@ -137,6 +137,7 @@ async function initSchema() {
       start_date DATETIME NOT NULL,
       duration_hours REAL NOT NULL,
       notes TEXT,
+      requester_phone TEXT,
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'denied', 'cancelled')),
       reviewed_by INTEGER,
       reviewed_at DATETIME,
@@ -172,6 +173,7 @@ async function initSchema() {
   try { await db.execute("ALTER TABLE users ADD COLUMN auth_provider TEXT DEFAULT 'local'"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN avatar_filename TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE users ADD COLUMN pilot_designation TEXT"); } catch(e) {}
+  try { await db.execute("ALTER TABLE rental_requests ADD COLUMN requester_phone TEXT"); } catch(e) {}
 
   console.log('✅ Database schema ready (Turso)');
 }
