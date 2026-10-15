@@ -28,6 +28,9 @@ var paginationState = {
 
 var usersCache = [];
 
+// Loose phone validator — matches the server-side check.
+var PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
+
 function api(path, options) {
   options = options || {};
   var isFormData = options.body instanceof FormData;
@@ -68,7 +71,6 @@ function toast(text, type) {
   }, 4000);
 }
 
-// Only append Z if the string doesn't already carry a timezone marker
 function _normalizeDateString(str) {
   var s = String(str).replace(' ', 'T');
   if (/[zZ]$/.test(s)) return s;
@@ -93,9 +95,6 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-// Safely embed a string inside a single-quoted JS literal that lives
-// inside an HTML onclick attribute. Prevents quote breakouts for names
-// like O'Brien.
 function jsStr(s) {
   return String(s == null ? '' : s)
     .replace(/\\/g, '\\\\')
@@ -341,8 +340,6 @@ function initDashboard() {
 function needsNameSetup(user) {
   if (!user) return false;
 
-  // Admins and instructors never get the automatic pilot-designation prompt.
-  // They only get prompted if their display name still looks like a placeholder.
   if (user.role === 'admin' || user.role === 'instructor') {
     var adminName = (user.full_name || '').trim();
     if (!adminName) return true;
@@ -352,7 +349,6 @@ function needsNameSetup(user) {
     return false;
   }
 
-  // Students: prompt for display name AND pilot designation.
   var name = (user.full_name || '').trim();
   if (!name) return true;
   if (name === 'GTAW User') return true;
@@ -1867,6 +1863,12 @@ function openRentalRequestModal(aircraftId, aircraftLabel) {
   document.getElementById('rentalAircraftId').value = aircraftId;
   document.getElementById('rentalAircraftLabel').textContent = aircraftLabel;
 
+  // Pre-fill phone from the user's profile if they have one
+  var phoneInput = document.getElementById('rentalPhone');
+  if (phoneInput) {
+    phoneInput.value = (currentUser && currentUser.phone) ? currentUser.phone : '';
+  }
+
   var now = new Date();
   now.setHours(now.getHours() + 1);
   now.setMinutes(0);
@@ -1888,9 +1890,21 @@ function submitRentalRequest(force) {
   var startDate = document.getElementById('rentalStartDate').value;
   var duration = parseFloat(document.getElementById('rentalDuration').value);
   var notes = document.getElementById('rentalNotes').value.trim();
+  var phoneEl = document.getElementById('rentalPhone');
+  var phone = phoneEl ? phoneEl.value.trim() : '';
   var errEl = document.getElementById('rentalRequestError');
   var btn = document.getElementById('rentalSubmitBtn');
 
+  if (!phone) {
+    errEl.textContent = 'Please enter a contact phone number';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!PHONE_RE.test(phone)) {
+    errEl.textContent = 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)';
+    errEl.style.display = 'block';
+    return;
+  }
   if (!startDate || !duration) {
     errEl.textContent = 'Start date and duration are required';
     errEl.style.display = 'block';
@@ -1905,6 +1919,7 @@ function submitRentalRequest(force) {
       start_date: startDate,
       duration_hours: duration,
       notes: notes,
+      requester_phone: phone,
       force: force === true
     })
   }).then(function() {
@@ -2010,6 +2025,9 @@ function renderRentalList(requests, isReviewer) {
     if (r.hourly_rate) {
       html += '    <span class="rental-detail-chip">💵 $' + Number(r.hourly_rate).toLocaleString() + '/h</span>';
     }
+    if (r.requester_phone) {
+      html += '    <span class="rental-detail-chip">📞 ' + escapeHtml(r.requester_phone) + '</span>';
+    }
     html += '  </div>';
 
     if (r.notes) {
@@ -2054,6 +2072,7 @@ function openRentalReviewModal(requestId) {
   document.getElementById('reviewRentalDetails').innerHTML =
     '<p><strong>' + escapeHtml(r.requester_name) + '</strong> wants to rent <strong>' + escapeHtml(r.tail_number) + '</strong> (' + escapeHtml(r.model) + ')</p>' +
     '<p class="muted" style="margin-top:8px;">📅 ' + fmtDate(r.start_date) + ' · ⏱️ ' + r.duration_hours + ' h</p>' +
+    (r.requester_phone ? '<p class="muted" style="margin-top:8px;">📞 <strong>' + escapeHtml(r.requester_phone) + '</strong></p>' : '') +
     (r.notes ? '<p class="muted" style="margin-top:8px;"><em>"' + escapeHtml(r.notes) + '"</em></p>' : '');
 
   document.getElementById('reviewRentalNotes').value = '';
@@ -2278,6 +2297,11 @@ function showScheduleDayDetails(dayKey, bookings) {
     html += '  <div class="schedule-booking-details">';
     html += '    <span>🕒 ' + fmtDate(b.start_date) + ' · ' + b.duration_hours + 'h</span>';
     html += '  </div>';
+    if (b.requester_phone) {
+      html += '  <div class="schedule-booking-details">';
+      html += '    <span>📞 ' + escapeHtml(b.requester_phone) + '</span>';
+      html += '  </div>';
+    }
     if (b.notes) {
       html += '  <div class="schedule-booking-notes">' + escapeHtml(b.notes) + '</div>';
     }
