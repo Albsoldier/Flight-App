@@ -3,9 +3,12 @@ const router = express.Router();
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 const notif = require('./notifications');
-const discord = require('../discord');                       // ← DISCORD
+const discord = require('../discord');
 
 router.use(authMiddleware.isAuthenticated);
+
+// Loose phone validation — digits, spaces, +, -, (), .
+const PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
 
 // ============================================
 // CREATE REQUEST — any authenticated user
@@ -16,6 +19,14 @@ router.post('/', async function(req, res) {
     const startDate = req.body.start_date;
     const durationHours = parseFloat(req.body.duration_hours);
     const notes = (req.body.notes || '').trim() || null;
+    const requesterPhone = (req.body.requester_phone || '').trim();
+
+    if (!requesterPhone) {
+      return res.status(400).json({ error: 'A contact phone number is required for rental requests' });
+    }
+    if (!PHONE_RE.test(requesterPhone)) {
+      return res.status(400).json({ error: 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)' });
+    }
 
     if (!aircraftId || !startDate || !durationHours) {
       return res.status(400).json({ error: 'aircraft_id, start_date, and duration_hours are required' });
@@ -24,7 +35,6 @@ router.post('/', async function(req, res) {
       return res.status(400).json({ error: 'Duration must be between 0 and 24 hours' });
     }
 
-    // ← DISCORD: added hourly_rate so the embed can show it
     const acResult = await database.db.execute({
       sql: 'SELECT id, tail_number, model, is_available, hourly_rate FROM aircraft WHERE id = ?',
       args: [aircraftId]
@@ -43,7 +53,6 @@ router.post('/', async function(req, res) {
       return res.status(400).json({ error: 'You already have a pending request for this aircraft' });
     }
 
-    // Check for schedule conflicts with approved rentals
     const requestedStart = new Date(String(startDate).replace(' ', 'T'));
     const requestedEnd = new Date(requestedStart.getTime() + durationHours * 3600 * 1000);
 
@@ -60,11 +69,7 @@ router.post('/', async function(req, res) {
       const bStart = new Date(String(b.start_date).replace(' ', 'T'));
       const bEnd = new Date(bStart.getTime() + (b.duration_hours || 0) * 3600 * 1000);
       if (requestedStart < bEnd && requestedEnd > bStart) {
-        conflict = {
-          id: b.id,
-          start: b.start_date,
-          duration: b.duration_hours
-        };
+        conflict = { id: b.id, start: b.start_date, duration: b.duration_hours };
         break;
       }
     }
@@ -78,8 +83,8 @@ router.post('/', async function(req, res) {
     }
 
     const insertResult = await database.db.execute({
-      sql: 'INSERT INTO rental_requests (aircraft_id, requester_id, start_date, duration_hours, notes) VALUES (?, ?, ?, ?, ?)',
-      args: [aircraftId, req.session.userId, startDate, durationHours, notes]
+      sql: 'INSERT INTO rental_requests (aircraft_id, requester_id, start_date, duration_hours, notes, requester_phone) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [aircraftId, req.session.userId, startDate, durationHours, notes, requesterPhone]
     });
 
     const newId = Number(insertResult.lastInsertRowid);
@@ -112,13 +117,13 @@ router.post('/', async function(req, res) {
       io.emit('notification-event', {});
     }
 
-    // ← DISCORD: fire-and-forget. A Discord outage must never fail the request.
     discord.notifyNewRentalRequest({
       id: newId,
       tail_number: aircraft.tail_number,
       model: aircraft.model,
       hourly_rate: aircraft.hourly_rate,
       requester_name: requesterName,
+      requester_phone: requesterPhone,
       start_date: startDate,
       duration_hours: durationHours,
       notes: notes
@@ -160,7 +165,7 @@ router.get('/all', authMiddleware.isInstructor, async function(req, res) {
   try {
     const result = await database.db.execute({
       sql: `SELECT r.id, r.aircraft_id, r.requester_id, r.start_date, r.duration_hours,
-                   r.notes, r.status, r.reviewed_by, r.reviewed_at, r.review_notes, r.created_at,
+                   r.notes, r.requester_phone, r.status, r.reviewed_by, r.reviewed_at, r.review_notes, r.created_at,
                    a.tail_number, a.model, a.hourly_rate,
                    u.full_name AS requester_name, u.username AS requester_username, u.role AS requester_role,
                    rv.full_name AS reviewer_name
@@ -238,10 +243,8 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
       io.emit('notification-event', {});
     }
 
-    // ← DISCORD: fetch joined data so the embed can show aircraft + names.
-    // Fire-and-forget so a failure here can't break the response.
     database.db.execute({
-      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.status, r.review_notes,
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.requester_phone, r.status, r.review_notes,
                    a.tail_number, a.model,
                    u.full_name  AS requester_name,
                    rv.full_name AS reviewer_name
@@ -260,6 +263,7 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
         tail_number: row.tail_number,
         model: row.model,
         requester_name: row.requester_name,
+        requester_phone: row.requester_phone,
         reviewer_name: row.reviewer_name,
         review_notes: row.review_notes
       }).catch(function() {});
@@ -293,12 +297,10 @@ router.delete('/:id', async function(req, res) {
       return res.status(400).json({ error: 'Only pending requests can be cancelled' });
     }
 
-    // ← DISCORD: capture joined info before the row disappears.
-    // We fetch it and stash it in a variable; the await keeps it simple.
     let discordPayload = null;
     try {
       const joined = await database.db.execute({
-        sql: `SELECT r.id, r.start_date, r.duration_hours,
+        sql: `SELECT r.id, r.start_date, r.duration_hours, r.requester_phone,
                      a.tail_number, a.model,
                      u.full_name AS requester_name
               FROM rental_requests r
@@ -308,14 +310,13 @@ router.delete('/:id', async function(req, res) {
         args: [id]
       });
       discordPayload = joined.rows[0] || null;
-    } catch (e) { /* non-fatal — just skip the Discord ping */ }
+    } catch (e) { /* non-fatal */ }
 
     await database.db.execute({
       sql: 'DELETE FROM rental_requests WHERE id = ?',
       args: [id]
     });
 
-    // ← DISCORD: fire-and-forget
     if (discordPayload) {
       discord.notifyRentalCancelled(discordPayload).catch(function() {});
     }
@@ -343,7 +344,7 @@ router.get('/aircraft/:id', async function(req, res) {
     if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
 
     const result = await database.db.execute({
-      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.status,
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.requester_phone, r.status,
                    r.requester_id, r.review_notes, r.created_at,
                    u.full_name AS requester_name, u.role AS requester_role
             FROM rental_requests r
