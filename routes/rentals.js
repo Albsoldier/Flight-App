@@ -10,6 +10,10 @@ router.use(authMiddleware.isAuthenticated);
 // Loose phone validation — digits, spaces, +, -, (), .
 const PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
 
+// Loose Discord username validation — handles modern and legacy formats.
+// Accepts: @john, john, john_doe, john.doe, john_doe#1234
+const DISCORD_RE = /^@?[A-Za-z0-9_.]{2,32}(#\d{4})?$/;
+
 // ============================================
 // CREATE REQUEST — any authenticated user
 // ============================================
@@ -20,12 +24,20 @@ router.post('/', async function(req, res) {
     const durationHours = parseFloat(req.body.duration_hours);
     const notes = (req.body.notes || '').trim() || null;
     const requesterPhone = (req.body.requester_phone || '').trim();
+    const requesterDiscord = (req.body.requester_discord || '').trim();
 
     if (!requesterPhone) {
       return res.status(400).json({ error: 'A contact phone number is required for rental requests' });
     }
     if (!PHONE_RE.test(requesterPhone)) {
       return res.status(400).json({ error: 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)' });
+    }
+
+    if (!requesterDiscord) {
+      return res.status(400).json({ error: 'A Discord username is required for rental requests' });
+    }
+    if (!DISCORD_RE.test(requesterDiscord)) {
+      return res.status(400).json({ error: 'Discord username is invalid (2–32 chars: letters, digits, _ or .)' });
     }
 
     if (!aircraftId || !startDate || !durationHours) {
@@ -83,8 +95,8 @@ router.post('/', async function(req, res) {
     }
 
     const insertResult = await database.db.execute({
-      sql: 'INSERT INTO rental_requests (aircraft_id, requester_id, start_date, duration_hours, notes, requester_phone) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [aircraftId, req.session.userId, startDate, durationHours, notes, requesterPhone]
+      sql: 'INSERT INTO rental_requests (aircraft_id, requester_id, start_date, duration_hours, notes, requester_phone, requester_discord) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [aircraftId, req.session.userId, startDate, durationHours, notes, requesterPhone, requesterDiscord]
     });
 
     const newId = Number(insertResult.lastInsertRowid);
@@ -124,6 +136,7 @@ router.post('/', async function(req, res) {
       hourly_rate: aircraft.hourly_rate,
       requester_name: requesterName,
       requester_phone: requesterPhone,
+      requester_discord: requesterDiscord,
       start_date: startDate,
       duration_hours: durationHours,
       notes: notes
@@ -165,7 +178,8 @@ router.get('/all', authMiddleware.isInstructor, async function(req, res) {
   try {
     const result = await database.db.execute({
       sql: `SELECT r.id, r.aircraft_id, r.requester_id, r.start_date, r.duration_hours,
-                   r.notes, r.requester_phone, r.status, r.reviewed_by, r.reviewed_at, r.review_notes, r.created_at,
+                   r.notes, r.requester_phone, r.requester_discord,
+                   r.status, r.reviewed_by, r.reviewed_at, r.review_notes, r.created_at,
                    a.tail_number, a.model, a.hourly_rate,
                    u.full_name AS requester_name, u.username AS requester_username, u.role AS requester_role,
                    rv.full_name AS reviewer_name
@@ -244,7 +258,9 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
     }
 
     database.db.execute({
-      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.requester_phone, r.status, r.review_notes,
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes,
+                   r.requester_phone, r.requester_discord,
+                   r.status, r.review_notes,
                    a.tail_number, a.model,
                    u.full_name  AS requester_name,
                    rv.full_name AS reviewer_name
@@ -264,6 +280,7 @@ router.put('/:id', authMiddleware.isInstructor, async function(req, res) {
         model: row.model,
         requester_name: row.requester_name,
         requester_phone: row.requester_phone,
+        requester_discord: row.requester_discord,
         reviewer_name: row.reviewer_name,
         review_notes: row.review_notes
       }).catch(function() {});
@@ -300,7 +317,8 @@ router.delete('/:id', async function(req, res) {
     let discordPayload = null;
     try {
       const joined = await database.db.execute({
-        sql: `SELECT r.id, r.start_date, r.duration_hours, r.requester_phone,
+        sql: `SELECT r.id, r.start_date, r.duration_hours,
+                     r.requester_phone, r.requester_discord,
                      a.tail_number, a.model,
                      u.full_name AS requester_name
               FROM rental_requests r
@@ -344,8 +362,9 @@ router.get('/aircraft/:id', async function(req, res) {
     if (!aircraft) return res.status(404).json({ error: 'Aircraft not found' });
 
     const result = await database.db.execute({
-      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes, r.requester_phone, r.status,
-                   r.requester_id, r.review_notes, r.created_at,
+      sql: `SELECT r.id, r.start_date, r.duration_hours, r.notes,
+                   r.requester_phone, r.requester_discord,
+                   r.status, r.requester_id, r.review_notes, r.created_at,
                    u.full_name AS requester_name, u.role AS requester_role
             FROM rental_requests r
             LEFT JOIN users u ON r.requester_id = u.id
