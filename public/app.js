@@ -29,7 +29,7 @@ var paginationState = {
 var usersCache = [];
 
 // Loose phone validator — matches the server-side check.
-var PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
+var PHONE_RE = /^[0-9 +()\-.]{3,25}$/;
 
 // Loose Discord username validator — matches the server-side check.
 // Accepts @john, john, john_doe, john.doe, john_doe#1234
@@ -1911,7 +1911,7 @@ function submitRentalRequest(force) {
     return;
   }
   if (!PHONE_RE.test(phone)) {
-    errEl.textContent = 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)';
+    errEl.textContent = 'Phone number is invalid (3–25 chars: digits, spaces, + - ( ) .)';
     errEl.style.display = 'block';
     return;
   }
