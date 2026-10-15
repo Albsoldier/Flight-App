@@ -5,15 +5,16 @@
 //
 // Env vars:
 //   DISCORD_WEBHOOK_URL        required — full webhook URL from Discord
-//   DISCORD_MENTION_ID         optional — role or user ID to @mention
-//   DISCORD_MENTION_IS_USER    optional — 'true' if MENTION_ID is a user, else role
+//   DISCORD_MENTION_IDS        optional — comma-separated role IDs (or user IDs) to @mention
+//   DISCORD_MENTION_ID         optional — single role/user ID (kept for backward compat)
+//   DISCORD_MENTION_IS_USER    optional — 'true' if the IDs are users, else roles
 //   DISCORD_RENTALS_ENABLED    optional — 'false' to disable (default: enabled)
 
 const https = require('https');
 const { URL } = require('url');
 
 const WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
-const MENTION_ID  = process.env.DISCORD_MENTION_ID  || '';
+const MENTION_RAW = process.env.DISCORD_MENTION_IDS || process.env.DISCORD_MENTION_ID || '';
 const ENABLED     = process.env.DISCORD_RENTALS_ENABLED !== 'false';
 
 const COLORS = {
@@ -27,10 +28,18 @@ function isEnabled() {
   return ENABLED && WEBHOOK_URL.length > 0;
 }
 
+// Parse comma-separated mention IDs into a proper mention prefix.
+// Non-numeric or blank entries are silently dropped.
 function mentionPrefix() {
-  if (!MENTION_ID) return '';
+  if (!MENTION_RAW) return '';
   const isUser = process.env.DISCORD_MENTION_IS_USER === 'true';
-  return isUser ? '<@' + MENTION_ID + '> ' : '<@&' + MENTION_ID + '> ';
+  const ids = MENTION_RAW.split(',')
+    .map(function(s) { return s.trim(); })
+    .filter(function(s) { return /^\d+$/.test(s); });
+  if (ids.length === 0) return '';
+  return ids.map(function(id) {
+    return isUser ? '<@' + id + '>' : '<@&' + id + '>';
+  }).join(' ') + ' ';
 }
 
 function isoUtc(str) {
