@@ -1,8 +1,4 @@
 // server/discord.js
-//
-// Fire-and-forget Discord webhook notifier.
-// Never throws — a Discord outage must not break API responses.
-
 const https = require('https');
 const { URL } = require('url');
 
@@ -95,10 +91,6 @@ function postPayload(payload) {
   });
 }
 
-// ---------------------------------------------
-// Event helpers
-// ---------------------------------------------
-
 async function notifyNewRentalRequest(r) {
   return postPayload({
     content: mentionPrefix() + 'New rental request needs review.',
@@ -110,6 +102,7 @@ async function notifyNewRentalRequest(r) {
         { name: 'Aircraft',  value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
         { name: 'Requester', value: r.requester_name || 'Unknown', inline: true },
         { name: 'Phone',     value: r.requester_phone || '—', inline: true },
+        { name: 'Discord',   value: r.requester_discord || '—', inline: true },
         { name: 'Start',     value: isoUtc(r.start_date), inline: true },
         { name: 'Duration',  value: (r.duration_hours || 0) + ' h', inline: true },
         { name: 'Rate',      value: r.hourly_rate ? '$' + Number(r.hourly_rate).toLocaleString() + '/h' : '—', inline: true }
@@ -134,6 +127,7 @@ async function notifyRentalReviewed(r) {
         { name: 'Aircraft',    value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
         { name: 'Requester',   value: r.requester_name || 'Unknown', inline: true },
         { name: 'Phone',       value: r.requester_phone || '—', inline: true },
+        { name: 'Discord',     value: r.requester_discord || '—', inline: true },
         { name: 'Reviewed by', value: r.reviewer_name || '—', inline: true }
       ].concat(
         r.review_notes ? [{ name: 'Reviewer notes', value: clip(r.review_notes, 500) }] : []
@@ -152,7 +146,8 @@ async function notifyRentalCancelled(r) {
       fields: [
         { name: 'Aircraft',  value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
         { name: 'Requester', value: r.requester_name || 'Unknown', inline: true },
-        { name: 'Phone',     value: r.requester_phone || '—', inline: true }
+        { name: 'Phone',     value: r.requester_phone || '—', inline: true },
+        { name: 'Discord',   value: r.requester_discord || '—', inline: true }
       ],
       footer: { text: 'Request #' + (r.id || '?') },
       timestamp: new Date().toISOString()
