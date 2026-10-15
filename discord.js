@@ -2,13 +2,6 @@
 //
 // Fire-and-forget Discord webhook notifier.
 // Never throws — a Discord outage must not break API responses.
-//
-// Env vars:
-//   DISCORD_WEBHOOK_URL        required — full webhook URL from Discord
-//   DISCORD_MENTION_IDS        optional — comma-separated role IDs (or user IDs) to @mention
-//   DISCORD_MENTION_ID         optional — single role/user ID (kept for backward compat)
-//   DISCORD_MENTION_IS_USER    optional — 'true' if the IDs are users, else roles
-//   DISCORD_RENTALS_ENABLED    optional — 'false' to disable (default: enabled)
 
 const https = require('https');
 const { URL } = require('url');
@@ -28,8 +21,6 @@ function isEnabled() {
   return ENABLED && WEBHOOK_URL.length > 0;
 }
 
-// Parse comma-separated mention IDs into a proper mention prefix.
-// Non-numeric or blank entries are silently dropped.
 function mentionPrefix() {
   if (!MENTION_RAW) return '';
   const isUser = process.env.DISCORD_MENTION_IS_USER === 'true';
@@ -56,7 +47,6 @@ function clip(s, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str;
 }
 
-// Low-level send. Returns a Promise<boolean> that resolves either way.
 function postPayload(payload) {
   if (!isEnabled()) return Promise.resolve(false);
 
@@ -82,9 +72,8 @@ function postPayload(payload) {
     }, function(res) {
       res.on('data', function() {});
       res.on('end', function() {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(true);
-        } else {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(true);
+        else {
           console.error('[discord] webhook returned status', res.statusCode);
           resolve(false);
         }
@@ -120,6 +109,7 @@ async function notifyNewRentalRequest(r) {
       fields: [
         { name: 'Aircraft',  value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
         { name: 'Requester', value: r.requester_name || 'Unknown', inline: true },
+        { name: 'Phone',     value: r.requester_phone || '—', inline: true },
         { name: 'Start',     value: isoUtc(r.start_date), inline: true },
         { name: 'Duration',  value: (r.duration_hours || 0) + ' h', inline: true },
         { name: 'Rate',      value: r.hourly_rate ? '$' + Number(r.hourly_rate).toLocaleString() + '/h' : '—', inline: true }
@@ -143,6 +133,7 @@ async function notifyRentalReviewed(r) {
       fields: [
         { name: 'Aircraft',    value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
         { name: 'Requester',   value: r.requester_name || 'Unknown', inline: true },
+        { name: 'Phone',       value: r.requester_phone || '—', inline: true },
         { name: 'Reviewed by', value: r.reviewer_name || '—', inline: true }
       ].concat(
         r.review_notes ? [{ name: 'Reviewer notes', value: clip(r.review_notes, 500) }] : []
@@ -160,7 +151,8 @@ async function notifyRentalCancelled(r) {
       color: COLORS.danger,
       fields: [
         { name: 'Aircraft',  value: '**' + (r.tail_number || '?') + '** (' + (r.model || '?') + ')', inline: true },
-        { name: 'Requester', value: r.requester_name || 'Unknown', inline: true }
+        { name: 'Requester', value: r.requester_name || 'Unknown', inline: true },
+        { name: 'Phone',     value: r.requester_phone || '—', inline: true }
       ],
       footer: { text: 'Request #' + (r.id || '?') },
       timestamp: new Date().toISOString()
@@ -168,7 +160,6 @@ async function notifyRentalCancelled(r) {
   });
 }
 
-// Generic helper for ad-hoc messages
 async function notifyCustom(title, body, level) {
   return postPayload({
     embeds: [{
