@@ -671,7 +671,7 @@
     </div>
   </div>
 
-  <!-- REQUEST RENTAL MODAL -->
+    <!-- REQUEST RENTAL MODAL -->
   <div id="rentalRequestModal" class="modal-backdrop" style="display:none;">
     <div class="modal">
       <div class="modal-header">
@@ -688,6 +688,13 @@
           <input type="tel" id="rentalPhone" placeholder="e.g., 555-0142" maxlength="25" autocomplete="tel" required>
           <small class="muted" style="display:block; margin-top:6px;">
             Used by instructors to reach you about this rental.
+          </small>
+        </div>
+        <div class="field">
+          <label>Discord Username <span style="color:#f87171;">*</span></label>
+          <input type="text" id="rentalDiscord" placeholder="e.g., john_doe" maxlength="40" autocomplete="off" required>
+          <small class="muted" style="display:block; margin-top:6px;">
+            So instructors can ping you on Discord about this request.
           </small>
         </div>
         <div class="field">
