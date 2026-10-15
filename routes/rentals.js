@@ -8,7 +8,7 @@ const discord = require('../discord');
 router.use(authMiddleware.isAuthenticated);
 
 // Loose phone validation — digits, spaces, +, -, (), .
-const PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
+const PHONE_RE = /^[0-9 +()\-.]{3,25}$/;
 
 // Loose Discord username validation — handles modern and legacy formats.
 // Accepts: @john, john, john_doe, john.doe, john_doe#1234
@@ -30,7 +30,7 @@ router.post('/', async function(req, res) {
       return res.status(400).json({ error: 'A contact phone number is required for rental requests' });
     }
     if (!PHONE_RE.test(requesterPhone)) {
-      return res.status(400).json({ error: 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)' });
+      return res.status(400).json({ error: 'Phone number is invalid (3–25 chars: digits, spaces, + - ( ) .)' });
     }
 
     if (!requesterDiscord) {
