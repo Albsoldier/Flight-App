@@ -31,6 +31,10 @@ var usersCache = [];
 // Loose phone validator — matches the server-side check.
 var PHONE_RE = /^[0-9 +()\-.]{5,25}$/;
 
+// Loose Discord username validator — matches the server-side check.
+// Accepts @john, john, john_doe, john.doe, john_doe#1234
+var DISCORD_RE = /^@?[A-Za-z0-9_.]{2,32}(#\d{4})?$/;
+
 function api(path, options) {
   options = options || {};
   var isFormData = options.body instanceof FormData;
@@ -1863,10 +1867,14 @@ function openRentalRequestModal(aircraftId, aircraftLabel) {
   document.getElementById('rentalAircraftId').value = aircraftId;
   document.getElementById('rentalAircraftLabel').textContent = aircraftLabel;
 
-  // Pre-fill phone from the user's profile if they have one
+  // Pre-fill from the user's profile if we have values on file
   var phoneInput = document.getElementById('rentalPhone');
   if (phoneInput) {
     phoneInput.value = (currentUser && currentUser.phone) ? currentUser.phone : '';
+  }
+  var discordInput = document.getElementById('rentalDiscord');
+  if (discordInput) {
+    discordInput.value = (currentUser && currentUser.discord_username) ? currentUser.discord_username : '';
   }
 
   var now = new Date();
@@ -1892,6 +1900,8 @@ function submitRentalRequest(force) {
   var notes = document.getElementById('rentalNotes').value.trim();
   var phoneEl = document.getElementById('rentalPhone');
   var phone = phoneEl ? phoneEl.value.trim() : '';
+  var discordEl = document.getElementById('rentalDiscord');
+  var discordUsername = discordEl ? discordEl.value.trim() : '';
   var errEl = document.getElementById('rentalRequestError');
   var btn = document.getElementById('rentalSubmitBtn');
 
@@ -1902,6 +1912,16 @@ function submitRentalRequest(force) {
   }
   if (!PHONE_RE.test(phone)) {
     errEl.textContent = 'Phone number contains invalid characters (5–25 chars: digits, spaces, + - ( ) .)';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!discordUsername) {
+    errEl.textContent = 'Please enter your Discord username';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!DISCORD_RE.test(discordUsername)) {
+    errEl.textContent = 'Discord username is invalid (2–32 chars: letters, digits, _ or .)';
     errEl.style.display = 'block';
     return;
   }
@@ -1920,6 +1940,7 @@ function submitRentalRequest(force) {
       duration_hours: duration,
       notes: notes,
       requester_phone: phone,
+      requester_discord: discordUsername,
       force: force === true
     })
   }).then(function() {
@@ -2028,6 +2049,9 @@ function renderRentalList(requests, isReviewer) {
     if (r.requester_phone) {
       html += '    <span class="rental-detail-chip">📞 ' + escapeHtml(r.requester_phone) + '</span>';
     }
+    if (r.requester_discord) {
+      html += '    <span class="rental-detail-chip">💬 ' + escapeHtml(r.requester_discord) + '</span>';
+    }
     html += '  </div>';
 
     if (r.notes) {
@@ -2073,6 +2097,7 @@ function openRentalReviewModal(requestId) {
     '<p><strong>' + escapeHtml(r.requester_name) + '</strong> wants to rent <strong>' + escapeHtml(r.tail_number) + '</strong> (' + escapeHtml(r.model) + ')</p>' +
     '<p class="muted" style="margin-top:8px;">📅 ' + fmtDate(r.start_date) + ' · ⏱️ ' + r.duration_hours + ' h</p>' +
     (r.requester_phone ? '<p class="muted" style="margin-top:8px;">📞 <strong>' + escapeHtml(r.requester_phone) + '</strong></p>' : '') +
+    (r.requester_discord ? '<p class="muted" style="margin-top:8px;">💬 Discord: <strong>' + escapeHtml(r.requester_discord) + '</strong></p>' : '') +
     (r.notes ? '<p class="muted" style="margin-top:8px;"><em>"' + escapeHtml(r.notes) + '"</em></p>' : '');
 
   document.getElementById('reviewRentalNotes').value = '';
@@ -2300,6 +2325,11 @@ function showScheduleDayDetails(dayKey, bookings) {
     if (b.requester_phone) {
       html += '  <div class="schedule-booking-details">';
       html += '    <span>📞 ' + escapeHtml(b.requester_phone) + '</span>';
+      html += '  </div>';
+    }
+    if (b.requester_discord) {
+      html += '  <div class="schedule-booking-details">';
+      html += '    <span>💬 ' + escapeHtml(b.requester_discord) + '</span>';
       html += '  </div>';
     }
     if (b.notes) {
