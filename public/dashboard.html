@@ -684,7 +684,14 @@
           Requesting: <strong id="rentalAircraftLabel" style="color:#38bdf8;">—</strong>
         </p>
         <div class="field">
-          <label>Start Date & Time</label>
+          <label>Contact Phone <span style="color:#f87171;">*</span></label>
+          <input type="tel" id="rentalPhone" placeholder="e.g., 555-0142" maxlength="25" autocomplete="tel" required>
+          <small class="muted" style="display:block; margin-top:6px;">
+            Used by instructors to reach you about this rental.
+          </small>
+        </div>
+        <div class="field">
+          <label>Start Date &amp; Time</label>
           <input type="datetime-local" id="rentalStartDate" required>
         </div>
         <div class="field">
