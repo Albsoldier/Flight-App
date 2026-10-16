@@ -728,7 +728,6 @@ function setupDashboard() {
   loadMyCertificates();
   loadAircraft();
   loadNotams();
-  loadWaypoints();
   loadMyRentals();
   if (canManage) loadTaughtLog();
   if (canManage) loadRentals();
