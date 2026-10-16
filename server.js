@@ -154,7 +154,6 @@ app.use('/api/flights', require('./routes/flights'));
 app.use('/api/materials', require('./routes/materials'));
 app.use('/api/aircraft', require('./routes/aircraft'));
 app.use('/api/notams', require('./routes/notams'));
-app.use('/api/routes', require('./routes/routes'));
 app.use('/api/certificates', require('./routes/certificates'));
 app.use('/api/rentals', require('./routes/rentals'));
 app.use('/api/notifications', require('./routes/notifications'));
