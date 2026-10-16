@@ -177,6 +177,58 @@ async function initSchema() {
   try { await db.execute("ALTER TABLE rental_requests ADD COLUMN requester_phone TEXT"); } catch(e) {}
   try { await db.execute("ALTER TABLE rental_requests ADD COLUMN requester_discord TEXT"); } catch(e) {}
 
+  // ---------- GTAW / Discord ID hygiene ----------
+  // 1. Null out any literal "undefined"/"null"/"" string IDs left behind by
+  //    the old GTAW bug (before the fix, gtawUser.id was always undefined).
+  try {
+    const cleaned = await db.execute(
+      "UPDATE users SET gtaw_id = NULL WHERE gtaw_id IN ('undefined', 'null', '')"
+    );
+    if (cleaned.rowsAffected > 0) {
+      console.log('🧹 Cleaned ' + cleaned.rowsAffected + ' malformed gtaw_id value(s)');
+    }
+  } catch(e) { console.error('gtaw_id cleanup failed:', e.message); }
+
+  try {
+    const cleaned = await db.execute(
+      "UPDATE users SET discord_id = NULL WHERE discord_id IN ('undefined', 'null', '')"
+    );
+    if (cleaned.rowsAffected > 0) {
+      console.log('🧹 Cleaned ' + cleaned.rowsAffected + ' malformed discord_id value(s)');
+    }
+  } catch(e) { console.error('discord_id cleanup failed:', e.message); }
+
+  // 2. Enforce uniqueness on provider IDs. Prevents a duplicate insert from
+  //    ever silently creating a second row for the same person.
+  try {
+    await db.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_gtaw_id ON users(gtaw_id) WHERE gtaw_id IS NOT NULL"
+    );
+  } catch(e) { console.error('gtaw_id unique index failed:', e.message); }
+
+  try {
+    await db.execute(
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id) WHERE discord_id IS NOT NULL"
+    );
+  } catch(e) { console.error('discord_id unique index failed:', e.message); }
+
+  // 3. Warn at startup if duplicates somehow already exist (index creation
+  //    would have failed above if so, but log it explicitly).
+  try {
+    const dupGtaw = await db.execute(
+      "SELECT gtaw_id, COUNT(*) c FROM users WHERE gtaw_id IS NOT NULL GROUP BY gtaw_id HAVING c > 1"
+    );
+    if (dupGtaw.rows.length > 0) {
+      console.warn('⚠️  Duplicate gtaw_id rows found:', JSON.stringify(dupGtaw.rows));
+    }
+    const dupDiscord = await db.execute(
+      "SELECT discord_id, COUNT(*) c FROM users WHERE discord_id IS NOT NULL GROUP BY discord_id HAVING c > 1"
+    );
+    if (dupDiscord.rows.length > 0) {
+      console.warn('⚠️  Duplicate discord_id rows found:', JSON.stringify(dupDiscord.rows));
+    }
+  } catch(e) { /* non-fatal */ }
+
   console.log('✅ Database schema ready (Turso)');
 }
 
