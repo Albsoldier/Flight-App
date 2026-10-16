@@ -5,9 +5,7 @@ const router = express.Router();
 const database = require('../database');
 const authMiddleware = require('../middleware/auth');
 
-// Cosmetic self-declared pilot designations. Separate from `role`
-// (admin/instructor/student) which controls permissions.
-const ALLOWED_PILOT_DESIGNATIONS = ['student', 'pilot_a', 'pilot_h'];   // ← NEW
+const ALLOWED_PILOT_DESIGNATIONS = ['student', 'pilot_a', 'pilot_h'];
 
 async function establishSession(req, user) {
   req.session.userId = user.id;
@@ -85,7 +83,7 @@ router.post('/login', async function(req, res) {
         role: user.role,
         fullName: user.full_name,
         email: user.email,
-        pilot_designation: user.pilot_designation || null       // ← NEW
+        pilot_designation: user.pilot_designation || null
       }
     });
   } catch (err) {
@@ -110,7 +108,7 @@ router.get('/me', async function(req, res) {
   }
   try {
     const result = await database.db.execute({
-      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username, gtaw_username, gtaw_character, pilot_designation FROM users WHERE id = ?',   // ← NEW column
+      sql: 'SELECT id, username, role, full_name, email, phone, license_number, total_hours, created_at, auth_provider, discord_username, gtaw_username, gtaw_character, pilot_designation FROM users WHERE id = ?',
       args: [req.session.userId]
     });
     const user = result.rows[0];
@@ -129,23 +127,14 @@ router.post('/set-name', async function(req, res) {
   }
 
   const fullName = (req.body.fullName || '').trim();
-  const rawDesignation = req.body.pilotDesignation;                       // ← NEW
+  const rawDesignation = req.body.pilotDesignation;
   const designation = (rawDesignation == null ? '' : String(rawDesignation)).trim();
 
-  if (!fullName) {
-    return res.status(400).json({ error: 'Name is required' });
-  }
-  if (fullName.length < 2) {
-    return res.status(400).json({ error: 'Name must be at least 2 characters' });
-  }
-  if (fullName.length > 40) {
-    return res.status(400).json({ error: 'Name must be 40 characters or less' });
-  }
-  if (!/^[A-Za-z0-9 \-'.]+$/.test(fullName)) {
-    return res.status(400).json({ error: 'Name contains invalid characters' });
-  }
+  if (!fullName) return res.status(400).json({ error: 'Name is required' });
+  if (fullName.length < 2) return res.status(400).json({ error: 'Name must be at least 2 characters' });
+  if (fullName.length > 40) return res.status(400).json({ error: 'Name must be 40 characters or less' });
+  if (!/^[A-Za-z0-9 \-'.]+$/.test(fullName)) return res.status(400).json({ error: 'Name contains invalid characters' });
 
-  // Validate designation if provided. Empty string means "leave unchanged".
   let newDesignation = null;
   if (designation) {
     if (ALLOWED_PILOT_DESIGNATIONS.indexOf(designation) === -1) {
@@ -166,10 +155,8 @@ router.post('/set-name', async function(req, res) {
         args: [fullName, req.session.userId]
       });
     }
-
     req.session.fullName = fullName;
 
-    // Return the effective designation so the client can update live
     let currentDesignation = newDesignation;
     if (!currentDesignation) {
       const r = await database.db.execute({
@@ -179,18 +166,17 @@ router.post('/set-name', async function(req, res) {
       currentDesignation = r.rows[0] ? r.rows[0].pilot_designation : null;
     }
 
-    res.json({
-      success: true,
-      fullName: fullName,
-      pilotDesignation: currentDesignation                        // ← NEW
-    });
+    res.json({ success: true, fullName: fullName, pilotDesignation: currentDesignation });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update name' });
   }
 });
 
-// DISCORD REDIRECT
+// ============================================
+// DISCORD OAUTH
+// ============================================
+
 router.get('/discord', function(req, res) {
   const clientId = process.env.DISCORD_CLIENT_ID;
   const redirectUri = process.env.DISCORD_REDIRECT_URI;
@@ -210,7 +196,6 @@ router.get('/discord', function(req, res) {
   res.redirect('https://discord.com/oauth2/authorize?' + params.toString());
 });
 
-// DISCORD CALLBACK
 router.get('/discord/callback', async function(req, res) {
   const code = req.query.code;
   const state = req.query.state;
@@ -255,6 +240,17 @@ router.get('/discord/callback', async function(req, res) {
 
     const discordUser = await userResponse.json();
 
+    // Guard: reject if Discord didn't return a usable ID.
+    if (!discordUser || discordUser.id === undefined || discordUser.id === null || String(discordUser.id).trim() === '') {
+      console.error('Discord /users/@me returned no id field.');
+      return res.redirect('/index.html?error=discord_user_failed');
+    }
+    const discordId = String(discordUser.id);
+    if (discordId === 'undefined' || discordId === 'null') {
+      console.error('Discord returned a literal "undefined"/"null" as the user ID.');
+      return res.redirect('/index.html?error=discord_user_failed');
+    }
+
     const guildId = process.env.DISCORD_GUILD_ID;
     const memberResponse = await fetch(
       'https://discord.com/api/v10/users/@me/guilds/' + guildId + '/member',
@@ -275,13 +271,13 @@ router.get('/discord/callback', async function(req, res) {
 
     const existingResult = await database.db.execute({
       sql: 'SELECT * FROM users WHERE discord_id = ?',
-      args: [discordUser.id]
+      args: [discordId]
     });
 
     let user = existingResult.rows[0];
 
     if (!user) {
-      const username = 'discord_' + discordUser.id;
+      const username = 'discord_' + discordId;
       const fullName = discordUser.global_name || discordUser.username;
       const insertResult = await database.db.execute({
         sql: 'INSERT INTO users (username, password, role, full_name, is_active, discord_id, discord_username, discord_avatar, auth_provider) VALUES (?, NULL, ?, ?, 1, ?, ?, ?, ?)',
@@ -289,7 +285,7 @@ router.get('/discord/callback', async function(req, res) {
           username,
           'student',
           fullName,
-          discordUser.id,
+          discordId,
           discordUser.username,
           discordUser.avatar || null,
           'discord'
@@ -430,23 +426,62 @@ router.get('/gtaw/callback', async function(req, res) {
       return res.redirect('/index.html?error=gtaw_user_failed');
     }
 
-    const gtawUser = await userResponse.json();
+    const raw = await userResponse.json();
     console.log('=== GTAW USER DATA ===');
-    console.log(JSON.stringify(gtawUser, null, 2));
+    console.log(JSON.stringify(raw, null, 2));
+
+    // GTAW nests the user object under `user`. Older/edge responses may have
+    // a flat shape — support both.
+    const gtawUser = raw && raw.user ? raw.user : raw;
+
+    // Guard: reject if GTAW didn't return a usable ID.
+    const rawId = gtawUser && (gtawUser.id || gtawUser.sub);
+    if (rawId === undefined || rawId === null || String(rawId).trim() === '') {
+      console.error('GTAW /api/user returned no id field. Full payload logged above.');
+      return res.redirect('/index.html?error=gtaw_user_failed');
+    }
+    const gtawId = String(rawId);
+    if (gtawId === 'undefined' || gtawId === 'null') {
+      console.error('GTAW returned a literal "undefined"/"null" as the user ID.');
+      return res.redirect('/index.html?error=gtaw_user_failed');
+    }
+
+    // Pull the real GTAW username (not the internal placeholder).
+    const gtawUsername = (gtawUser.username || '').trim() || null;
+
+    // Character: prefer the most recently logged-in character.
+    let character = null;
+    if (Array.isArray(gtawUser.character) && gtawUser.character.length > 0) {
+      const sorted = gtawUser.character.slice().sort(function(a, b) {
+        const ta = a && a.last_login ? new Date(a.last_login).getTime() : 0;
+        const tb = b && b.last_login ? new Date(b.last_login).getTime() : 0;
+        return tb - ta;
+      });
+      const newest = sorted[0];
+      const first = (newest && newest.firstname) ? String(newest.firstname).trim() : '';
+      const last  = (newest && newest.lastname)  ? String(newest.lastname).trim()  : '';
+      const full = (first + ' ' + last).trim();
+      if (full) character = full;
+    } else if (gtawUser.character && typeof gtawUser.character === 'object') {
+      // Some responses have a single object instead of an array.
+      const first = gtawUser.character.firstname ? String(gtawUser.character.firstname).trim() : '';
+      const last  = gtawUser.character.lastname  ? String(gtawUser.character.lastname).trim()  : '';
+      const full = (first + ' ' + last).trim();
+      if (full) character = full;
+    }
+
+    const email = gtawUser.email || null;
 
     const existingResult = await database.db.execute({
       sql: 'SELECT * FROM users WHERE gtaw_id = ?',
-      args: [String(gtawUser.sub || gtawUser.id)]
+      args: [gtawId]
     });
 
     let user = existingResult.rows[0];
 
     if (!user) {
-      const gtawId = String(gtawUser.sub || gtawUser.id);
       const username = 'gtaw_' + gtawId;
-      const fullName = gtawUser.username || gtawUser.name || 'GTAW User';
-      const email = gtawUser.email || null;
-      const character = gtawUser.character ? (gtawUser.character.name || JSON.stringify(gtawUser.character)) : null;
+      const fullName = character || gtawUsername || 'GTAW User';
 
       const insertResult = await database.db.execute({
         sql: 'INSERT INTO users (username, password, role, full_name, email, is_active, gtaw_id, gtaw_username, gtaw_character, auth_provider) VALUES (?, NULL, ?, ?, ?, 1, ?, ?, ?, ?)',
@@ -456,7 +491,7 @@ router.get('/gtaw/callback', async function(req, res) {
           fullName,
           email,
           gtawId,
-          gtawUser.username || null,
+          gtawUsername,
           character,
           'gtaw'
         ]
@@ -468,10 +503,9 @@ router.get('/gtaw/callback', async function(req, res) {
       });
       user = newUserResult.rows[0];
     } else {
-      const character = gtawUser.character ? (gtawUser.character.name || JSON.stringify(gtawUser.character)) : null;
       await database.db.execute({
         sql: 'UPDATE users SET gtaw_username = ?, gtaw_character = ? WHERE id = ?',
-        args: [gtawUser.username || null, character, user.id]
+        args: [gtawUsername, character, user.id]
       });
     }
 
